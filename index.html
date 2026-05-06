@@ -10,55 +10,53 @@ margin:0;
 font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",Arial;
 color:white;
 background:#000;
-height:100vh;
 overflow:hidden;
 }
 
-/* 🌌 BACKGROUND */
+/* SCROLL FIX */
+.scroll{
+height:100vh;
+overflow-y:auto;
+-webkit-overflow-scrolling:touch;
+position:relative;
+padding-bottom:100px;
+}
+
+/* BACKGROUND */
 #bg{
 position:fixed;
 width:100%;
 height:100%;
-z-index:-4;
+z-index:-5;
 transition:1s;
 }
 
-/* 🌧 CANVAS FX */
+/* CANVAS */
 canvas{
 position:fixed;
 top:0;
 left:0;
-pointer-events:none; /* 🔥 FIX SCROLL BUG */
-}
-
-/* 📜 SCROLL FIX (ВАЖНО) */
-.scroll{
-position:relative;
-height:100vh;
-overflow-y:auto;
--webkit-overflow-scrolling:touch;
-padding-bottom:80px;
+pointer-events:none;
 }
 
 /* UI */
 .container{padding:22px;}
 
-.city{text-align:center;opacity:.85;font-size:18px;}
+.city{text-align:center;opacity:.8;font-size:18px;}
 
 .temp{
 text-align:center;
-font-size:108px;
+font-size:110px;
 font-weight:200;
-letter-spacing:-2px;
 }
 
 .desc{text-align:center;opacity:.8}
 
-/* GLASS CARDS */
+/* CARDS */
 .card{
 background:rgba(255,255,255,0.08);
-backdrop-filter:blur(22px);
-border-radius:24px;
+backdrop-filter:blur(20px);
+border-radius:20px;
 padding:14px;
 margin-top:12px;
 }
@@ -67,10 +65,9 @@ margin-top:12px;
 display:flex;
 justify-content:space-between;
 padding:6px 0;
-font-size:14px;
 }
 
-/* HOURLY */
+/* hourly */
 .hourly{
 display:flex;
 overflow-x:auto;
@@ -78,27 +75,21 @@ gap:10px;
 }
 
 .hour{
-min-width:72px;
+min-width:70px;
 text-align:center;
-background:rgba(255,255,255,0.08);
 padding:10px;
 border-radius:14px;
+background:rgba(255,255,255,0.08);
 }
 
-/* CHART */
-canvas#chart{
-width:100%;
-height:140px;
-}
-
-/* DAILY */
+/* daily */
 .day{
 display:flex;
 justify-content:space-between;
 padding:10px;
-border-radius:14px;
 background:rgba(255,255,255,0.06);
 margin-top:6px;
+border-radius:12px;
 }
 </style>
 </head>
@@ -109,94 +100,91 @@ margin-top:6px;
 
 <canvas id="fx"></canvas>
 <canvas id="stars"></canvas>
+<canvas id="clouds"></canvas>
 
 <div class="scroll">
 
 <div class="container">
 
-<div class="city" id="city">📍 locating...</div>
+<div class="city" id="city">📍 loading...</div>
 <div class="temp" id="temp">--°</div>
-<div class="desc" id="desc">loading...</div>
+<div class="desc" id="desc">...</div>
 
 <div class="card">
-<div class="row"><span>🌡 feels</span><span id="feel">--°</span></div>
-<div class="row"><span>💨 wind</span><span id="wind">--</span></div>
+<div class="row"><span>🌡 feels</span><span id="feel"></span></div>
+<div class="row"><span>💨 wind</span><span id="wind"></span></div>
 </div>
 
 <div class="card">
-<div>📊 temperature graph</div>
-<canvas id="chart"></canvas>
-</div>
-
-<div class="card">
-<div>⏱ hourly</div>
+<div>📊 hourly</div>
 <div class="hourly" id="hourly"></div>
 </div>
 
 <div class="card">
-<div>📆 7 days</div>
+<div>📆 week</div>
 <div id="daily"></div>
 </div>
 
 </div>
+
 </div>
 
 <script>
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-/* ================= GEO CITY ================= */
+/* ================= CITY ================= */
 async function getCity(lat, lon){
 try{
-const r = await fetch(
-`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&language=ru`
-);
+const r = await fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&language=ru`);
 const d = await r.json();
 return d?.results?.[0]?.name || "Unknown";
-}catch(e){
-return "Unknown";
-}
+}catch{return "Unknown";}
 }
 
-/* ================= FX (RAIN) ================= */
-const fx=document.getElementById("fx");
-const f=fx.getContext("2d");
-fx.width=innerWidth;
-fx.height=innerHeight;
+/* ================= CLOUDS ================= */
+const c = document.getElementById("clouds");
+const cx = c.getContext("2d");
+c.width = innerWidth;
+c.height = innerHeight;
 
-let drops=[];
+let clouds=[];
 
-function rain(){
-drops=[];
-for(let i=0;i<100;i++){
-drops.push({
-x:Math.random()*fx.width,
-y:Math.random()*fx.height,
-l:Math.random()*18,
-s:Math.random()*4+2
+function initClouds(){
+clouds=[];
+for(let i=0;i<15;i++){
+clouds.push({
+x:Math.random()*c.width,
+y:Math.random()*c.height*0.5,
+w:120+Math.random()*200,
+h:60+Math.random()*40,
+s:0.3+Math.random()*0.5
 });
 }
 }
 
-function drawFX(){
-f.clearRect(0,0,fx.width,fx.height);
+function drawClouds(){
+cx.clearRect(0,0,c.width,c.height);
 
-f.strokeStyle="rgba(255,255,255,0.25)";
-for(let d of drops){
-f.beginPath();
-f.moveTo(d.x,d.y);
-f.lineTo(d.x,d.y+d.l);
-f.stroke();
+for(let cl of clouds){
+cx.fillStyle="rgba(255,255,255,0.07)";
+cx.beginPath();
+cx.ellipse(cl.x,cl.y,cl.w,cl.h,0,0,Math.PI*2);
+cx.fill();
 
-d.y+=d.s;
-if(d.y>fx.height){
-d.y=0;
-d.x=Math.random()*fx.width;
+cl.x += cl.s;
+
+if(cl.x > c.width+200){
+cl.x = -200;
+cl.y = Math.random()*c.height*0.5;
 }
 }
 
-requestAnimationFrame(drawFX);
+requestAnimationFrame(drawClouds);
 }
+
+initClouds();
+drawClouds();
 
 /* ================= STARS ================= */
 const s=document.getElementById("stars");
@@ -206,146 +194,57 @@ s.height=innerHeight;
 
 let stars=[];
 
-function createStars(){
-stars=[];
-for(let i=0;i<140;i++){
+function initStars(){
+for(let i=0;i<120;i++){
 stars.push({
 x:Math.random()*s.width,
 y:Math.random()*s.height,
-r:Math.random()*1.5,
-o:Math.random()
+r:Math.random()*1.5
 });
 }
 }
 
 function drawStars(){
 sx.clearRect(0,0,s.width,s.height);
-
 for(let st of stars){
 sx.beginPath();
 sx.arc(st.x,st.y,st.r,0,Math.PI*2);
-sx.fillStyle=`rgba(255,255,255,${st.o})`;
+sx.fillStyle="white";
 sx.fill();
 }
-
 requestAnimationFrame(drawStars);
 }
 
-createStars();
+initStars();
 drawStars();
 
-/* parallax */
-document.addEventListener("mousemove",(e)=>{
-let x=(e.clientX/window.innerWidth-0.5)*10;
-let y=(e.clientY/window.innerHeight-0.5)*10;
-
-s.style.transform=`translate(${x}px,${y}px)`;
-});
-
-/* ================= LIGHTNING ================= */
-function lightning(){
-document.getElementById("bg").style.filter="brightness(3)";
-setTimeout(()=>{
-document.getElementById("bg").style.filter="brightness(1)";
-},120);
-}
-
-function stormCheck(t){
-if(t>15){
-setInterval(()=>{
-if(Math.random()<0.25) lightning();
-},3000);
-}
-}
-
-/* ================= BG ================= */
-function bg(t){
-let b=document.getElementById("bg");
-
-if(t<0){
-b.style.background="linear-gradient(180deg,#0b132b,#1c2541)";
-rain();
-}
-else if(t<10){
-b.style.background="linear-gradient(180deg,#1e3c72,#2a5298)";
-rain();
-}
-else if(t<20){
-b.style.background="linear-gradient(180deg,#2b5876,#4e4376)";
-}
-else{
-b.style.background="linear-gradient(180deg,#f12711,#f5af19)";
-}
-}
-
-/* ================= CHART ================= */
-function chart(data){
-const c=document.getElementById("chart");
-const g=c.getContext("2d");
-
-c.width=innerWidth-50;
-c.height=140;
-
-g.clearRect(0,0,c.width,c.height);
-
-let max=Math.max(...data);
-let min=Math.min(...data);
-
-g.strokeStyle="white";
-g.lineWidth=3;
-g.beginPath();
-
-data.forEach((v,i)=>{
-let x=i*(c.width/data.length);
-let y=c.height-((v-min)/(max-min))*110;
-
-if(i==0)g.moveTo(x,y);
-else g.lineTo(x,y);
-});
-
-g.stroke();
-}
-
-/* ================= MAIN ================= */
+/* ================= WEATHER ================= */
 async function load(){
 
-navigator.geolocation.getCurrentPosition(async(pos)=>{
+navigator.geolocation.getCurrentPosition(async(p)=>{
 
-const lat=pos.coords.latitude;
-const lon=pos.coords.longitude;
+const lat=p.coords.latitude;
+const lon=p.coords.longitude;
 
-const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m&daily=temperature_2m_max,temperature_2m_min&forecast_days=7`;
+const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m&daily=temperature_2m_max,temperature_2m_min&forecast_days=7`);
 
-const r=await fetch(url);
 const d=await r.json();
-
 const w=d.current_weather;
+
 const t=Math.round(w.temperature);
 
 document.getElementById("temp").innerText=t+"°";
 document.getElementById("feel").innerText=t+"°";
 document.getElementById("wind").innerText=w.windspeed+" km/h";
 
-bg(t);
-
-const city = await getCity(lat,lon);
-document.getElementById("city").innerText="📍 "+city;
-
-stormCheck(t);
+document.getElementById("city").innerText="📍 "+await getCity(lat,lon);
 
 /* hourly */
 let h=document.getElementById("hourly");
 h.innerHTML="";
-let arr=[];
-
-for(let i=0;i<12;i++){
-let v=Math.round(d.hourly.temperature_2m[i]);
-arr.push(v);
-h.innerHTML+=`<div class="hour">${i}:00<br><b>${v}°</b></div>`;
+for(let i=0;i<10;i++){
+h.innerHTML+=`<div class="hour">${Math.round(d.hourly.temperature_2m[i])}°</div>`;
 }
-
-/* chart */
-chart(arr);
 
 /* daily */
 let dd=document.getElementById("daily");
@@ -357,8 +256,6 @@ dd.innerHTML+=`
 <span>${d.daily.temperature_2m_min[i]}° / ${d.daily.temperature_2m_max[i]}°</span>
 </div>`;
 }
-
-drawFX();
 
 });
 }
