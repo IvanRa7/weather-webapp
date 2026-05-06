@@ -1,177 +1,263 @@
 <!DOCTYPE html>
 <html>
 <head>
-<meta charset="UTF-8">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
+<title>Weather App</title>
+
 <style>
-body{
-margin:0;
-font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",Arial;
-color:white;
-overflow:hidden;
+body {
+    margin:0;
+    font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+    color:white;
+    background: linear-gradient(180deg,#0b1220,#0f1a33);
+    overflow:hidden;
 }
 
-/* BACKGROUND */
-#bg{
-position:fixed;
-width:100%;
-height:100%;
-z-index:-5;
-transition:1s;
+/* ====== BACKGROUND WEATHER ====== */
+#weather-bg {
+    position:fixed;
+    width:100%;
+    height:100%;
+    top:0;
+    left:0;
+    z-index:-1;
 }
 
-/* SCROLL */
-.scroll{
-height:100vh;
-overflow-y:auto;
--webkit-overflow-scrolling:touch;
-position:relative;
+/* ====== UI ====== */
+.container {
+    padding:20px;
 }
 
-/* UI */
-.container{padding:20px;}
-
-.city{text-align:center;opacity:.8;font-size:18px;}
-.temp{text-align:center;font-size:110px;font-weight:200;}
-.desc{text-align:center;opacity:.8}
-
-/* CARDS */
-.card{
-background:rgba(255,255,255,0.08);
-backdrop-filter:blur(20px);
-border-radius:18px;
-padding:14px;
-margin-top:10px;
+.card {
+    background: rgba(255,255,255,0.08);
+    border-radius:20px;
+    padding:20px;
+    margin-top:15px;
+    backdrop-filter: blur(10px);
 }
 
-.row{
-display:flex;
-justify-content:space-between;
+.city {
+    font-size:28px;
+    font-weight:600;
 }
 
-/* ANIMATED CLOUDS */
-canvas{
-position:fixed;
-top:0;
-left:0;
-pointer-events:none;
+.temp {
+    font-size:64px;
+    font-weight:200;
+}
+
+.small {
+    opacity:0.7;
+}
+
+/* ====== WEEK ====== */
+.week {
+    display:flex;
+    overflow-x:auto;
+    gap:10px;
+}
+
+.day {
+    min-width:80px;
+    text-align:center;
+    background: rgba(255,255,255,0.06);
+    padding:10px;
+    border-radius:12px;
+}
+
+/* ====== RAIN ====== */
+.drop {
+    position:absolute;
+    width:2px;
+    height:20px;
+    background:rgba(255,255,255,0.4);
+    animation: fall linear infinite;
+}
+
+@keyframes fall {
+    to { transform: translateY(100vh); }
 }
 </style>
 </head>
 
 <body>
 
-<div id="bg"></div>
-<canvas id="clouds"></canvas>
+<canvas id="weather-bg"></canvas>
 
-<div class="scroll">
 <div class="container">
 
-<div class="city" id="city">📍 loading...</div>
-<div class="temp" id="temp">--°</div>
-<div class="desc" id="desc">...</div>
+    <div class="card">
+        <div class="city" id="city">Loading...</div>
+        <div class="temp" id="temp">--°</div>
+        <div class="small" id="desc">--</div>
+    </div>
 
-<div class="card">
-<div class="row"><span>🌡 feels</span><span id="feel"></span></div>
-<div class="row"><span>💨 wind</span><span id="wind"></span></div>
-</div>
+    <div class="card">
+        <div>📆 7-Day Forecast</div>
+        <div class="week" id="week"></div>
+    </div>
 
-</div>
 </div>
 
 <script>
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-/* ================= GEO STORAGE ================= */
-const GEO_KEY="geo_v1";
-const WEATHER_KEY="weather_v1";
+/* ================== GEO CACHE ================== */
+let lastPos = JSON.parse(localStorage.getItem("lastPos") || "null");
 
-/* ================= DISTANCE (KM) ================= */
-function distance(lat1,lon1,lat2,lon2){
-const R=6371;
-const dLat=(lat2-lat1)*Math.PI/180;
-const dLon=(lon2-lon1)*Math.PI/180;
-const a=
-Math.sin(dLat/2)**2+
-Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
-Math.sin(dLon/2)**2;
-return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+/* distance calc */
+function distance(lat1, lon1, lat2, lon2){
+    const R = 6371;
+    const dLat = (lat2-lat1)*Math.PI/180;
+    const dLon = (lon2-lon1)*Math.PI/180;
+    const a =
+        Math.sin(dLat/2)*Math.sin(dLat/2) +
+        Math.cos(lat1*Math.PI/180) *
+        Math.cos(lat2*Math.PI/180) *
+        Math.sin(dLon/2)*Math.sin(dLon/2);
+    return R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
 }
 
-/* ================= REVERSE GEOCODING ================= */
-async function getCity(lat,lon){
-try{
-const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
-const d=await r.json();
-return d.address.city || d.address.town || d.address.village || "Unknown";
-}catch{
-return "Unknown";
-}
+/* ================== GEO ================== */
+async function getCity(lat, lon){
+    const r = await fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=ru`
+    );
+    const d = await r.json();
+    return d.city || d.locality || "Unknown";
 }
 
-/* ================= WEATHER ================= */
-async function getWeather(lat,lon){
-const r=await fetch(
-`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`
-);
-return await r.json();
+/* ================== WEATHER ================== */
+async function getWeather(lat, lon){
+    const r = await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`
+    );
+    return await r.json();
 }
 
-/* ================= BACKGROUND ================= */
-function setBG(temp){
-let bg=document.getElementById("bg");
+/* ================== INIT LOCATION ================== */
+async function init(){
 
-if(temp<0) bg.style.background="linear-gradient(#0b132b,#1c2541)";
-else if(temp<10) bg.style.background="linear-gradient(#1e3c72,#2a5298)";
-else if(temp<20) bg.style.background="linear-gradient(#2b5876,#4e4376)";
-else bg.style.background="linear-gradient(#f12711,#f5af19)";
+    if(!navigator.geolocation){
+        alert("No GPS");
+        return;
+    }
+
+    navigator.geolocation.getCurrentPosition(async (pos)=>{
+
+        const lat = pos.coords.latitude;
+        const lon = pos.coords.longitude;
+
+        /* check movement (>2km update) */
+        if(lastPos){
+            const dist = distance(lastPos.lat,lastPos.lon,lat,lon);
+            if(dist < 2){
+                load(lastPos.lat,lastPos.lon);
+                return;
+            }
+        }
+
+        localStorage.setItem("lastPos", JSON.stringify({lat,lon}));
+
+        load(lat,lon);
+
+    });
 }
 
-/* ================= SMART LOCATION ================= */
-async function update(){
+/* ================== LOAD DATA ================== */
+async function load(lat,lon){
 
-navigator.geolocation.getCurrentPosition(async(pos)=>{
+    const city = await getCity(lat,lon);
+    const w = await getWeather(lat,lon);
 
-const lat=pos.coords.latitude;
-const lon=pos.coords.longitude;
+    document.getElementById("city").innerText = city;
+    document.getElementById("temp").innerText =
+        Math.round(w.current_weather.temperature) + "°";
 
-let saved=JSON.parse(localStorage.getItem(GEO_KEY)||"null");
+    document.getElementById("desc").innerText =
+        "Wind " + w.current_weather.windspeed + " km/h";
 
-if(saved){
-let d=distance(lat,lon,saved.lat,saved.lon);
-if(d<2){
-console.log("📍 no significant movement");
-return;
-}
-}
+    /* WEEK */
+    const week = document.getElementById("week");
+    week.innerHTML = "";
 
-/* save new geo */
-localStorage.setItem(GEO_KEY,JSON.stringify({lat,lon}));
+    for(let i=0;i<w.daily.time.length;i++){
 
-/* weather */
-let w=await getWeather(lat,lon);
-let cur=w.current_weather;
+        const div = document.createElement("div");
+        div.className = "day";
+        div.innerHTML =
+            `<div>${w.daily.time[i].slice(5)}</div>
+             <div>${Math.round(w.daily.temperature_2m_min[i])}°</div>
+             <div>${Math.round(w.daily.temperature_2m_max[i])}°</div>`;
 
-/* city */
-let city=await getCity(lat,lon);
+        week.appendChild(div);
+    }
 
-/* UI */
-document.getElementById("city").innerText="📍 "+city;
-document.getElementById("temp").innerText=Math.round(cur.temperature)+"°";
-document.getElementById("feel").innerText=Math.round(cur.temperature)+"°";
-document.getElementById("wind").innerText=cur.windspeed+" km/h";
-
-setBG(cur.temperature);
-
-});
+    /* WEATHER EFFECT */
+    startWeatherAnimation(w.current_weather.weathercode);
 }
 
-/* ================= AUTO UPDATE ================= */
-update();
-setInterval(update, 5*60*1000); // каждые 5 минут
+/* ================== WEATHER EFFECTS ================== */
+function startWeatherAnimation(code){
 
+    const canvas = document.getElementById("weather-bg");
+    const ctx = canvas.getContext("2d");
+
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+
+    let drops = [];
+
+    function createRain(){
+        drops = [];
+        for(let i=0;i<100;i++){
+            drops.push({
+                x: Math.random()*canvas.width,
+                y: Math.random()*canvas.height,
+                l: Math.random()*20,
+                s: Math.random()*5+2
+            });
+        }
+    }
+
+    function drawRain(){
+        ctx.clearRect(0,0,canvas.width,canvas.height);
+        ctx.strokeStyle = "rgba(255,255,255,0.3)";
+        ctx.lineWidth = 1;
+
+        for(let d of drops){
+            ctx.beginPath();
+            ctx.moveTo(d.x,d.y);
+            ctx.lineTo(d.x,d.y+d.l);
+            ctx.stroke();
+
+            d.y += d.s;
+            if(d.y > canvas.height){
+                d.y = -20;
+            }
+        }
+
+        requestAnimationFrame(drawRain);
+    }
+
+    /* weather logic */
+    if(code >= 51 && code <= 67){
+        createRain();
+        drawRain();
+    }
+}
+
+/* ================== AUTO UPDATE ================== */
+setInterval(()=>{
+    init();
+}, 15 * 60 * 1000); // каждые 15 минут
+
+init();
 </script>
 
 </body>
