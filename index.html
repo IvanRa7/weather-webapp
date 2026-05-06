@@ -5,23 +5,29 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 <style>
+:root {
+  --bg1:#0f172a;
+  --bg2:#1e293b;
+}
+
 body {
   margin:0;
   font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",Arial;
   color:white;
+  background: linear-gradient(180deg,var(--bg1),var(--bg2));
   overflow:hidden;
 }
 
-/* 🌈 dynamic background */
+/* 🌌 BACKGROUND LAYER */
 #bg {
   position:fixed;
   width:100%;
   height:100%;
   z-index:-3;
-  transition:1.2s;
+  transition:1s;
 }
 
-/* 🌧 canvas effects */
+/* 🌧 canvas FX */
 canvas {
   position:fixed;
   top:0;
@@ -29,39 +35,42 @@ canvas {
   z-index:-2;
 }
 
-/* UI */
-.container { padding:20px; }
+/* 📱 UI */
+.container { padding:22px; }
 
 .city {
   text-align:center;
-  opacity:.85;
   font-size:18px;
+  opacity:.85;
 }
 
 .temp {
   text-align:center;
-  font-size:96px;
+  font-size:104px;
   font-weight:200;
+  letter-spacing:-2px;
 }
 
 .desc {
   text-align:center;
   opacity:.8;
-  margin-bottom:10px;
+  margin-bottom:8px;
 }
 
+/* glass cards */
 .card {
-  background:rgba(255,255,255,0.10);
-  backdrop-filter: blur(18px);
-  border-radius:20px;
+  background:rgba(255,255,255,0.08);
+  backdrop-filter: blur(20px);
+  border-radius:22px;
   padding:14px;
   margin-top:12px;
 }
 
+/* rows */
 .row {
   display:flex;
   justify-content:space-between;
-  padding:6px 0;
+  padding:7px 0;
   font-size:14px;
   opacity:.9;
 }
@@ -74,7 +83,7 @@ canvas {
 }
 
 .hour {
-  min-width:70px;
+  min-width:72px;
   text-align:center;
   background:rgba(255,255,255,0.08);
   padding:10px;
@@ -87,8 +96,8 @@ canvas {
   justify-content:space-between;
   padding:10px;
   border-radius:14px;
-  background:rgba(255,255,255,0.08);
-  margin-top:8px;
+  background:rgba(255,255,255,0.06);
+  margin-top:6px;
 }
 
 /* button */
@@ -139,7 +148,7 @@ button {
 const tg=window.Telegram.WebApp;
 tg.expand();
 
-/* 🌧 FX ENGINE (rain/snow) */
+/* 🌧 optimized FX engine */
 const c=document.getElementById("fx");
 const ctx=c.getContext("2d");
 c.width=innerWidth;
@@ -147,14 +156,14 @@ c.height=innerHeight;
 
 let particles=[];
 
-function makeRain(){
+function rain(){
 particles=[];
-for(let i=0;i<120;i++){
+for(let i=0;i<100;i++){
 particles.push({
 x:Math.random()*c.width,
 y:Math.random()*c.height,
-l:Math.random()*18,
-s:Math.random()*5+2
+l:Math.random()*16,
+s:Math.random()*4+2
 });
 }
 }
@@ -162,31 +171,37 @@ s:Math.random()*5+2
 function draw(){
 ctx.clearRect(0,0,c.width,c.height);
 ctx.strokeStyle="rgba(255,255,255,0.25)";
+
 for(let p of particles){
 ctx.beginPath();
 ctx.moveTo(p.x,p.y);
 ctx.lineTo(p.x,p.y+p.l);
 ctx.stroke();
+
 p.y+=p.s;
-if(p.y>c.height){p.y=0;p.x=Math.random()*c.width;}
+if(p.y>c.height){
+p.y=0;
+p.x=Math.random()*c.width;
 }
+}
+
 requestAnimationFrame(draw);
 }
 
-/* 🎨 background logic */
-function setBg(t){
+/* 🎨 dynamic theme */
+function theme(t){
 const bg=document.getElementById("bg");
 
 if(t<0){
 bg.style.background="linear-gradient(180deg,#0f2027,#203a43)";
-makeRain();
+rain();
 }
 else if(t<10){
-bg.style.background="linear-gradient(180deg,#2c3e50,#3498db)";
-makeRain();
+bg.style.background="linear-gradient(180deg,#1e3c72,#2a5298)";
+rain();
 }
 else if(t<20){
-bg.style.background="linear-gradient(180deg,#3a7bd5,#3a6073)";
+bg.style.background="linear-gradient(180deg,#2b5876,#4e4376)";
 }
 else{
 bg.style.background="linear-gradient(180deg,#f12711,#f5af19)";
@@ -196,12 +211,12 @@ bg.style.background="linear-gradient(180deg,#f12711,#f5af19)";
 /* 🧠 advice */
 function advice(t){
 if(t<0) return "🧊 extreme cold";
-if(t<10) return "🧥 jacket needed";
+if(t<10) return "🧥 jacket required";
 if(t<20) return "👕 light jacket";
 return "☀️ warm weather";
 }
 
-/* 🌤 main */
+/* 🌤 load weather */
 async function load(){
 
 navigator.geolocation.getCurrentPosition(async(pos)=>{
@@ -225,7 +240,7 @@ document.getElementById("hum").innerText="—";
 document.getElementById("desc").innerText=advice(t);
 document.getElementById("city").innerText="📍 your location";
 
-setBg(t);
+theme(t);
 
 /* hourly */
 let h=document.getElementById("hourly");
@@ -245,7 +260,7 @@ dd.innerHTML+=`
 </div>`;
 }
 
-/* start fx */
+/* start animation once */
 draw();
 
 });
