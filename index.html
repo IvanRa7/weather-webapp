@@ -2,17 +2,17 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-<title>Weather App</title>
+<title>Weather</title>
 
 <style>
 html,body{
 margin:0;
 height:100%;
-overflow:hidden;
 font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+overflow:hidden;
 transition:1s;
 }
 
@@ -21,15 +21,15 @@ transition:1s;
 position:fixed;
 inset:0;
 z-index:0;
-transition:1s;
 }
 
-/* FX */
-#fx{
+/* ALWAYS ANIMATION LAYER */
+#anim{
 position:fixed;
 inset:0;
 z-index:1;
 pointer-events:none;
+overflow:hidden;
 }
 
 /* UI */
@@ -38,26 +38,35 @@ position:relative;
 z-index:10;
 height:100vh;
 overflow-y:auto;
-padding:20px;
+padding:calc(50px + env(safe-area-inset-top)) 15px 20px 15px;
 box-sizing:border-box;
 }
 
-/* TOP BAR */
+/* TOP BAR FIXED */
 .topbar{
+position:fixed;
+top:0;
+left:0;
+right:0;
+height:50px;
+z-index:999;
 display:flex;
 justify-content:space-between;
 align-items:center;
-margin-bottom:10px;
+padding:10px 15px;
+padding-top:calc(10px + env(safe-area-inset-top));
+backdrop-filter:blur(15px);
+background:rgba(0,0,0,0.15);
 }
 
+/* BUTTON ALWAYS VISIBLE */
 button{
 border:none;
 padding:8px 12px;
 border-radius:10px;
-cursor:pointer;
-background:rgba(255,255,255,0.2);
-backdrop-filter:blur(10px);
+background:rgba(255,255,255,0.25);
 color:inherit;
+font-weight:500;
 }
 
 /* CARDS */
@@ -78,6 +87,7 @@ margin-bottom:12px;
 display:flex;
 gap:10px;
 overflow-x:auto;
+padding-bottom:10px;
 }
 
 .day{
@@ -88,7 +98,7 @@ border-radius:12px;
 text-align:center;
 }
 
-/* FX */
+/* ===== ANIMATION OBJECTS ===== */
 .cloud,.drop,.snow{
 position:absolute;
 pointer-events:none;
@@ -99,7 +109,7 @@ width:160px;
 height:50px;
 background:rgba(255,255,255,0.2);
 border-radius:50px;
-animation:move 40s linear infinite;
+animation:move 35s linear infinite;
 }
 
 @keyframes move{
@@ -129,20 +139,28 @@ animation:snow linear infinite;
 @keyframes snow{
 to{transform:translateY(100vh)}
 }
+
+/* fallback animated background */
+@keyframes gradient{
+0%{filter:hue-rotate(0deg)}
+50%{filter:hue-rotate(30deg)}
+100%{filter:hue-rotate(0deg)}
+}
 </style>
 </head>
 
 <body>
 
 <div id="bg"></div>
-<div id="fx"></div>
+<div id="anim"></div>
 
-<div class="ui">
-
+<!-- FIXED TOP BAR -->
 <div class="topbar">
 <div id="time">--:--</div>
 <button onclick="toggleTheme()">🌗 Theme</button>
 </div>
+
+<div class="ui">
 
 <div class="card">
 <div class="city" id="city">Loading...</div>
@@ -159,15 +177,10 @@ to{transform:translateY(100vh)}
 </div>
 
 <script>
-const fx=document.getElementById("fx");
+const anim=document.getElementById("anim");
 
-/* ===== THEME CONTROL ===== */
 let manualTheme=null;
-
-function toggleTheme(){
-manualTheme = manualTheme==="dark" ? "light" : "dark";
-applyTheme(lastWeatherCode, true);
-}
+let lastCode=null;
 
 /* ===== CLOCK ===== */
 setInterval(()=>{
@@ -175,46 +188,61 @@ document.getElementById("time").innerText=
 new Date().toLocaleTimeString().slice(0,5);
 },1000);
 
+/* ===== THEME BUTTON ===== */
+function toggleTheme(){
+manualTheme = manualTheme==="dark" ? "light" : "dark";
+applyTheme(lastCode,true);
+}
+
+/* ===== ALWAYS BACKGROUND (fallback) ===== */
+function baseAnimation(){
+for(let i=0;i<3;i++){
+let c=document.createElement("div");
+c.className="cloud";
+c.style.top=Math.random()*40+"vh";
+c.style.animationDuration=(25+Math.random()*20)+"s";
+anim.appendChild(c);
+}
+}
+baseAnimation();
+
 /* ===== FX ===== */
-function clearFX(){fx.innerHTML=""}
+function clearFX(){anim.innerHTML="";baseAnimation()}
 
 function clouds(){
 for(let i=0;i<4;i++){
 let c=document.createElement("div");
 c.className="cloud";
 c.style.top=Math.random()*40+"vh";
-c.style.animationDuration=(25+Math.random()*20)+"s";
-fx.appendChild(c);
+anim.appendChild(c);
 }
 }
 
 function rain(){
-for(let i=0;i<80;i++){
+for(let i=0;i<70;i++){
 let d=document.createElement("div");
 d.className="drop";
 d.style.left=Math.random()*100+"vw";
 d.style.animationDuration=(0.5+Math.random())+"s";
-fx.appendChild(d);
+anim.appendChild(d);
 }
 }
 
 function snow(){
-for(let i=0;i<60;i++){
+for(let i=0;i<50;i++){
 let s=document.createElement("div");
 s.className="snow";
 s.style.left=Math.random()*100+"vw";
 s.style.animationDuration=(3+Math.random()*4)+"s";
-fx.appendChild(s);
+anim.appendChild(s);
 }
 }
 
-/* ===== THEME + WEATHER BACKGROUND ===== */
-let lastWeatherCode=null;
-
+/* ===== THEME + WEATHER ===== */
 function applyTheme(code,force=false){
 
 const hour=new Date().getHours();
-const isNight = hour<7 || hour>19;
+const night=hour<7||hour>19;
 
 const bg=document.getElementById("bg");
 
@@ -230,8 +258,8 @@ document.body.style.color="black";
 return;
 }
 
-/* auto theme */
-if(isNight){
+/* auto */
+if(night){
 bg.style.background="linear-gradient(180deg,#0b1220,#1b2a4a)";
 document.body.style.color="white";
 }else{
@@ -242,26 +270,26 @@ document.body.style.color="black";
 /* weather FX */
 clearFX();
 
-if(code<=2){
+if(!code){
 clouds();
-}
-else if(code>=51 && code<=67){
-rain();
-}
-else if(code>=71 && code<=77){
-snow();
-}
+return;
 }
 
-/* ===== WEATHER ADVICE ===== */
+if(code<=2) clouds();
+else if(code>=51 && code<=67) rain();
+else if(code>=71 && code<=77) snow();
+else clouds();
+}
+
+/* ===== ADVICE ===== */
 function advice(t,w){
-let r="🧠 Одежда: ";
-if(t<0)r+="🧥 очень тепло";
-else if(t<10)r+="🧥 куртка";
-else if(t<20)r+="👕 лёгкая";
-else r+="☀️ жарко";
+let r="🧠 ";
+if(t<0)r+="Очень холодно";
+else if(t<10)r+="Нужна куртка";
+else if(t<20)r+="Лёгкая одежда";
+else r+="Жарко";
 
-if(w>30)r+=" 🌬 ветрено";
+if(w>30)r+=" + ветрено";
 return r;
 }
 
@@ -281,18 +309,12 @@ const w=await fetch(
 `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`
 ).then(r=>r.json());
 
-lastWeatherCode=w.current_weather.weathercode;
+lastCode=w.current_weather.weathercode;
 
 /* UI */
-document.getElementById("city").innerText=
-city.city||"Unknown";
-
-document.getElementById("temp").innerText=
-Math.round(w.current_weather.temperature)+"°";
-
-document.getElementById("desc").innerText=
-"Wind "+w.current_weather.windspeed+" km/h";
-
+document.getElementById("city").innerText=city.city||"Unknown";
+document.getElementById("temp").innerText=Math.round(w.current_weather.temperature)+"°";
+document.getElementById("desc").innerText="Wind "+w.current_weather.windspeed+" km/h";
 document.getElementById("advice").innerText=
 advice(w.current_weather.temperature,w.current_weather.windspeed);
 
@@ -311,8 +333,8 @@ d.innerHTML=`
 week.appendChild(d);
 }
 
-/* APPLY BACKGROUND */
-applyTheme(lastWeatherCode);
+/* APPLY */
+applyTheme(lastCode);
 
 });
 </script>
