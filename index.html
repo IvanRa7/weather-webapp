@@ -12,13 +12,13 @@ color:white;
 overflow:hidden;
 }
 
-/* 🌌 BG */
+/* 🌌 BACKGROUND */
 #bg{
 position:fixed;
 width:100%;
 height:100%;
 z-index:-3;
-transition:1s;
+transition:1.2s;
 }
 
 /* 🌧 FX */
@@ -29,17 +29,25 @@ left:0;
 z-index:-2;
 }
 
+/* UI */
 .container{padding:22px;}
 
 .city{text-align:center;opacity:.85;font-size:18px;}
-.temp{text-align:center;font-size:104px;font-weight:200;}
+
+.temp{
+text-align:center;
+font-size:108px;
+font-weight:200;
+letter-spacing:-2px;
+}
+
 .desc{text-align:center;opacity:.8}
 
-/* cards */
+/* glass */
 .card{
 background:rgba(255,255,255,0.08);
-backdrop-filter:blur(20px);
-border-radius:22px;
+backdrop-filter:blur(22px);
+border-radius:24px;
 padding:14px;
 margin-top:12px;
 }
@@ -49,6 +57,7 @@ display:flex;
 justify-content:space-between;
 padding:6px 0;
 font-size:14px;
+opacity:.9;
 }
 
 /* hourly */
@@ -69,8 +78,7 @@ border-radius:14px;
 /* chart */
 canvas#chart{
 width:100%;
-height:120px;
-margin-top:10px;
+height:140px;
 }
 
 /* daily */
@@ -83,6 +91,7 @@ background:rgba(255,255,255,0.06);
 margin-top:6px;
 }
 
+/* button */
 button{
 width:100%;
 margin-top:12px;
@@ -111,10 +120,11 @@ background:white;
 <div class="card">
 <div class="row"><span>🌡 feels</span><span id="feel">--°</span></div>
 <div class="row"><span>💨 wind</span><span id="wind">--</span></div>
+<div class="row"><span>💧 humidity</span><span id="hum">--</span></div>
 </div>
 
 <div class="card">
-<div>📊 temperature graph</div>
+<div>📊 temperature curve</div>
 <canvas id="chart"></canvas>
 </div>
 
@@ -134,7 +144,7 @@ background:white;
 const tg=window.Telegram.WebApp;
 tg.expand();
 
-/* FX */
+/* 🌧 FX engine */
 const c=document.getElementById("fx");
 const ctx=c.getContext("2d");
 c.width=innerWidth;
@@ -142,19 +152,19 @@ c.height=innerHeight;
 
 let p=[];
 
-function rain(){
+function weatherFX(type){
 p=[];
-for(let i=0;i<90;i++){
+for(let i=0;i<120;i++){
 p.push({
 x:Math.random()*c.width,
 y:Math.random()*c.height,
-l:Math.random()*15,
-s:Math.random()*4+2
+l:Math.random()*18,
+s:Math.random()*5+2
 });
 }
 }
 
-function draw(){
+function drawFX(){
 ctx.clearRect(0,0,c.width,c.height);
 ctx.strokeStyle="rgba(255,255,255,0.25)";
 
@@ -165,29 +175,42 @@ ctx.lineTo(d.x,d.y+d.l);
 ctx.stroke();
 
 d.y+=d.s;
-if(d.y>c.height){d.y=0;d.x=Math.random()*c.width;}
+if(d.y>c.height){
+d.y=0;
+d.x=Math.random()*c.width;
+}
 }
 
-requestAnimationFrame(draw);
+requestAnimationFrame(drawFX);
 }
 
-/* BG */
+/* 🌌 background */
 function bg(t){
 let b=document.getElementById("bg");
 
-if(t<0){b.style.background="linear-gradient(180deg,#0f2027,#203a43)";rain();}
-else if(t<10){b.style.background="linear-gradient(180deg,#1e3c72,#2a5298)";rain();}
-else if(t<20){b.style.background="linear-gradient(180deg,#2b5876,#4e4376)";}
-else{b.style.background="linear-gradient(180deg,#f12711,#f5af19)";}
+if(t<0){
+b.style.background="linear-gradient(180deg,#0b132b,#1c2541)";
+weatherFX("snow");
+}
+else if(t<10){
+b.style.background="linear-gradient(180deg,#1e3c72,#2a5298)";
+weatherFX("rain");
+}
+else if(t<20){
+b.style.background="linear-gradient(180deg,#2b5876,#4e4376)";
+}
+else{
+b.style.background="linear-gradient(180deg,#f12711,#f5af19)";
+}
 }
 
-/* GRAPH */
-function drawChart(data){
+/* 📊 smooth chart */
+function chart(data){
 const canvas=document.getElementById("chart");
 const g=canvas.getContext("2d");
 
 canvas.width=innerWidth-50;
-canvas.height=120;
+canvas.height=140;
 
 g.clearRect(0,0,canvas.width,canvas.height);
 
@@ -195,12 +218,12 @@ let max=Math.max(...data);
 let min=Math.min(...data);
 
 g.strokeStyle="white";
-g.lineWidth=2;
+g.lineWidth=3;
 g.beginPath();
 
 data.forEach((v,i)=>{
 let x=i*(canvas.width/data.length);
-let y=canvas.height-((v-min)/(max-min))*100;
+let y=canvas.height-((v-min)/(max-min))*110;
 
 if(i==0)g.moveTo(x,y);
 else g.lineTo(x,y);
@@ -209,7 +232,15 @@ else g.lineTo(x,y);
 g.stroke();
 }
 
-/* WEATHER */
+/* 🧠 advice */
+function advice(t){
+if(t<0) return "🧊 extreme cold";
+if(t<10) return "🧥 winter jacket";
+if(t<20) return "👕 light jacket";
+return "☀️ warm weather";
+}
+
+/* 🌤 load */
 async function load(){
 
 navigator.geolocation.getCurrentPosition(async(pos)=>{
@@ -228,8 +259,9 @@ const t=Math.round(w.temperature);
 document.getElementById("temp").innerText=t+"°";
 document.getElementById("feel").innerText=t+"°";
 document.getElementById("wind").innerText=w.windspeed+" km/h";
+document.getElementById("hum").innerText="—";
 
-document.getElementById("desc").innerText="current weather";
+document.getElementById("desc").innerText=advice(t);
 document.getElementById("city").innerText="📍 your location";
 
 bg(t);
@@ -237,17 +269,16 @@ bg(t);
 /* hourly */
 let h=document.getElementById("hourly");
 h.innerHTML="";
-let graphData=[];
+let arr=[];
 
 for(let i=0;i<12;i++){
-let temp=Math.round(d.hourly.temperature_2m[i]);
-graphData.push(temp);
-
-h.innerHTML+=`<div class="hour">${i}:00<br><b>${temp}°</b></div>`;
+let v=Math.round(d.hourly.temperature_2m[i]);
+arr.push(v);
+h.innerHTML+=`<div class="hour">${i}:00<br><b>${v}°</b></div>`;
 }
 
 /* chart */
-drawChart(graphData);
+chart(arr);
 
 /* daily */
 let dd=document.getElementById("daily");
@@ -260,8 +291,7 @@ dd.innerHTML+=`
 </div>`;
 }
 
-/* start fx */
-draw();
+drawFX();
 
 });
 }
