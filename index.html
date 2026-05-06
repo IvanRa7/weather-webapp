@@ -9,10 +9,12 @@ body{
 margin:0;
 font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",Arial;
 color:white;
+background:#000;
+height:100vh;
 overflow:hidden;
 }
 
-/* BACKGROUND */
+/* 🌌 BACKGROUND */
 #bg{
 position:fixed;
 width:100%;
@@ -21,12 +23,21 @@ z-index:-4;
 transition:1s;
 }
 
-/* FX LAYERS */
+/* 🌧 CANVAS FX */
 canvas{
 position:fixed;
 top:0;
 left:0;
-z-index:-3;
+pointer-events:none; /* 🔥 FIX SCROLL BUG */
+}
+
+/* 📜 SCROLL FIX (ВАЖНО) */
+.scroll{
+position:relative;
+height:100vh;
+overflow-y:auto;
+-webkit-overflow-scrolling:touch;
+padding-bottom:80px;
 }
 
 /* UI */
@@ -43,7 +54,7 @@ letter-spacing:-2px;
 
 .desc{text-align:center;opacity:.8}
 
-/* GLASS */
+/* GLASS CARDS */
 .card{
 background:rgba(255,255,255,0.08);
 backdrop-filter:blur(22px);
@@ -59,7 +70,7 @@ padding:6px 0;
 font-size:14px;
 }
 
-/* hourly */
+/* HOURLY */
 .hourly{
 display:flex;
 overflow-x:auto;
@@ -74,13 +85,13 @@ padding:10px;
 border-radius:14px;
 }
 
-/* chart */
+/* CHART */
 canvas#chart{
 width:100%;
 height:140px;
 }
 
-/* daily */
+/* DAILY */
 .day{
 display:flex;
 justify-content:space-between;
@@ -98,6 +109,8 @@ margin-top:6px;
 
 <canvas id="fx"></canvas>
 <canvas id="stars"></canvas>
+
+<div class="scroll">
 
 <div class="container">
 
@@ -126,29 +139,26 @@ margin-top:6px;
 </div>
 
 </div>
+</div>
 
 <script>
-const tg=window.Telegram.WebApp;
+const tg = window.Telegram.WebApp;
 tg.expand();
 
-/* ======================
-🌍 REVERSE GEOCODING
-====================== */
+/* ================= GEO CITY ================= */
 async function getCity(lat, lon){
-  try{
-    const r = await fetch(
-      `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&language=ru`
-    );
-    const d = await r.json();
-    return d?.results?.[0]?.name || "Unknown";
-  }catch(e){
-    return "Unknown";
-  }
+try{
+const r = await fetch(
+`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&language=ru`
+);
+const d = await r.json();
+return d?.results?.[0]?.name || "Unknown";
+}catch(e){
+return "Unknown";
+}
 }
 
-/* ======================
-🌧 FX (rain / snow)
-====================== */
+/* ================= FX (RAIN) ================= */
 const fx=document.getElementById("fx");
 const f=fx.getContext("2d");
 fx.width=innerWidth;
@@ -188,9 +198,7 @@ d.x=Math.random()*fx.width;
 requestAnimationFrame(drawFX);
 }
 
-/* ======================
-🌌 STARS (iOS night sky)
-====================== */
+/* ================= STARS ================= */
 const s=document.getElementById("stars");
 const sx=s.getContext("2d");
 s.width=innerWidth;
@@ -226,7 +234,7 @@ requestAnimationFrame(drawStars);
 createStars();
 drawStars();
 
-/* 🌠 PARALLAX */
+/* parallax */
 document.addEventListener("mousemove",(e)=>{
 let x=(e.clientX/window.innerWidth-0.5)*10;
 let y=(e.clientY/window.innerHeight-0.5)*10;
@@ -234,9 +242,7 @@ let y=(e.clientY/window.innerHeight-0.5)*10;
 s.style.transform=`translate(${x}px,${y}px)`;
 });
 
-/* ======================
-⚡ LIGHTNING SYSTEM
-====================== */
+/* ================= LIGHTNING ================= */
 function lightning(){
 document.getElementById("bg").style.filter="brightness(3)";
 setTimeout(()=>{
@@ -252,9 +258,7 @@ if(Math.random()<0.25) lightning();
 }
 }
 
-/* ======================
-🎨 BACKGROUND
-====================== */
+/* ================= BG ================= */
 function bg(t){
 let b=document.getElementById("bg");
 
@@ -274,9 +278,7 @@ b.style.background="linear-gradient(180deg,#f12711,#f5af19)";
 }
 }
 
-/* ======================
-📊 GRAPH
-====================== */
+/* ================= CHART ================= */
 function chart(data){
 const c=document.getElementById("chart");
 const g=c.getContext("2d");
@@ -304,9 +306,7 @@ else g.lineTo(x,y);
 g.stroke();
 }
 
-/* ======================
-🌤 MAIN LOAD
-====================== */
+/* ================= MAIN ================= */
 async function load(){
 
 navigator.geolocation.getCurrentPosition(async(pos)=>{
