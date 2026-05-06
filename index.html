@@ -8,58 +8,39 @@
 <title>Weather App</title>
 
 <style>
-/* ================= BASE ================= */
 body {
     margin:0;
     font-family:-apple-system,BlinkMacSystemFont,sans-serif;
     color:white;
-    overflow:hidden;
-    background:#0b1220;
+    height:100vh;
+    overflow:hidden; /* важно: убираем body scroll */
 }
 
-/* ================= BACKGROUND ================= */
+/* ===== BACKGROUND ===== */
 #bg {
     position:fixed;
     width:100%;
     height:100%;
     top:0;
     left:0;
-    z-index:-3;
+    z-index:-10;
     background: linear-gradient(180deg,#1b2a4a,#0b1220);
-    transition: all 1.5s ease;
 }
 
-/* moving clouds */
+/* ===== IMPORTANT FIX ===== */
+/* ВСЕ АНИМАЦИИ НЕ ПЕРЕХВАТЫВАЮТ КЛИКИ */
+.cloud, .drop, .snow {
+    pointer-events:none; /* 🔥 КЛЮЧЕВАЯ ФИКСАЦИЯ */
+}
+
+/* CLOUDS */
 .cloud {
     position:absolute;
     width:200px;
     height:60px;
     background:rgba(255,255,255,0.15);
     border-radius:50px;
-    filter:blur(1px);
     animation: moveClouds linear infinite;
-}
-
-.cloud:before,
-.cloud:after {
-    content:"";
-    position:absolute;
-    background:rgba(255,255,255,0.15);
-    border-radius:50px;
-}
-
-.cloud:before {
-    width:120px;
-    height:120px;
-    top:-50px;
-    left:20px;
-}
-
-.cloud:after {
-    width:100px;
-    height:100px;
-    top:-30px;
-    left:90px;
 }
 
 @keyframes moveClouds {
@@ -67,7 +48,7 @@ body {
     to { transform: translateX(120vw); }
 }
 
-/* rain */
+/* RAIN */
 .drop {
     position:absolute;
     width:2px;
@@ -80,52 +61,49 @@ body {
     to { transform: translateY(100vh); }
 }
 
-/* snow */
+/* SNOW */
 .snow {
     position:absolute;
     width:6px;
     height:6px;
     background:white;
     border-radius:50%;
-    opacity:0.7;
     animation: snowFall linear infinite;
 }
 
 @keyframes snowFall {
-    to { transform: translateY(100vh) rotate(360deg); }
+    to { transform: translateY(100vh); }
 }
 
-/* ================= UI ================= */
+/* ===== UI SCROLL FIX ===== */
 .container {
+    position:relative;
+    z-index:5;
+    height:100vh;
+    overflow-y:auto;      /* 🔥 ВКЛЮЧАЕМ СКРОЛЛ */
     padding:20px;
+    box-sizing:border-box;
 }
 
+/* ===== CARDS ===== */
 .card {
     background: rgba(255,255,255,0.08);
     border-radius:20px;
     padding:20px;
     backdrop-filter: blur(15px);
-    margin-top:15px;
+    margin-bottom:15px;
 }
 
-.city {
-    font-size:28px;
-    font-weight:600;
-}
+.city { font-size:28px; font-weight:600; }
+.temp { font-size:64px; font-weight:200; }
+.small { opacity:0.7; }
 
-.temp {
-    font-size:64px;
-    font-weight:200;
-}
-
-.small {
-    opacity:0.7;
-}
-
+/* ===== WEEK FIX ===== */
 .week {
     display:flex;
     gap:10px;
     overflow-x:auto;
+    padding-bottom:10px;
 }
 
 .day {
@@ -151,7 +129,7 @@ body {
     </div>
 
     <div class="card">
-        <div>📆 Forecast</div>
+        <div>📆 7-Day Forecast</div>
         <div class="week" id="week"></div>
     </div>
 
@@ -161,7 +139,7 @@ body {
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-/* ================= GEO ================= */
+/* GEO */
 async function getCity(lat, lon){
     const r = await fetch(
         `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=ru`
@@ -170,7 +148,7 @@ async function getCity(lat, lon){
     return d.city || d.locality || "Unknown";
 }
 
-/* ================= WEATHER ================= */
+/* WEATHER */
 async function getWeather(lat, lon){
     const r = await fetch(
         `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`
@@ -178,17 +156,17 @@ async function getWeather(lat, lon){
     return await r.json();
 }
 
-/* ================= BACKGROUND CONTROL ================= */
+/* CLEAR EFFECTS */
 function clearEffects(){
-    document.querySelectorAll(".drop,.snow,.cloud").forEach(e=>e.remove());
+    document.querySelectorAll(".cloud,.drop,.snow").forEach(e=>e.remove());
 }
 
 /* CLOUDS */
-function addClouds(){
+function clouds(){
     for(let i=0;i<5;i++){
         let c=document.createElement("div");
         c.className="cloud";
-        c.style.top=Math.random()*50+"vh";
+        c.style.top=Math.random()*40+"vh";
         c.style.animationDuration=(20+Math.random()*40)+"s";
         document.body.appendChild(c);
     }
@@ -196,7 +174,7 @@ function addClouds(){
 
 /* RAIN */
 function rain(){
-    for(let i=0;i<120;i++){
+    for(let i=0;i<80;i++){
         let d=document.createElement("div");
         d.className="drop";
         d.style.left=Math.random()*100+"vw";
@@ -207,7 +185,7 @@ function rain(){
 
 /* SNOW */
 function snow(){
-    for(let i=0;i<80;i++){
+    for(let i=0;i<60;i++){
         let s=document.createElement("div");
         s.className="snow";
         s.style.left=Math.random()*100+"vw";
@@ -216,72 +194,63 @@ function snow(){
     }
 }
 
-/* ================= WEATHER MAP ================= */
-function setBackground(code){
-
+/* BACKGROUND */
+function setBg(code){
     clearEffects();
 
-    const bg = document.getElementById("bg");
+    const bg=document.getElementById("bg");
 
-    // clear
-    bg.style.background = "";
-
-    if(code <= 2){
-        bg.style.background = "linear-gradient(180deg,#4facfe,#0b1220)";
-        addClouds();
+    if(code<=2){
+        bg.style.background="linear-gradient(180deg,#4facfe,#0b1220)";
+        clouds();
     }
-    else if(code >= 51 && code <= 67){
-        bg.style.background = "linear-gradient(180deg,#3a7bd5,#000428)";
+    else if(code>=51 && code<=67){
+        bg.style.background="linear-gradient(180deg,#3a7bd5,#000428)";
         rain();
     }
-    else if(code >= 71 && code <= 77){
-        bg.style.background = "linear-gradient(180deg,#e6dada,#274046)";
+    else if(code>=71 && code<=77){
+        bg.style.background="linear-gradient(180deg,#e6dada,#274046)";
         snow();
     }
     else{
-        bg.style.background = "linear-gradient(180deg,#1b2a4a,#0b1220)";
-        addClouds();
+        bg.style.background="linear-gradient(180deg,#1b2a4a,#0b1220)";
+        clouds();
     }
 }
 
-/* ================= LOAD ================= */
-async function init(){
+/* INIT */
+navigator.geolocation.getCurrentPosition(async (pos)=>{
 
-    navigator.geolocation.getCurrentPosition(async (pos)=>{
+    const lat=pos.coords.latitude;
+    const lon=pos.coords.longitude;
 
-        const lat = pos.coords.latitude;
-        const lon = pos.coords.longitude;
+    const city=await getCity(lat,lon);
+    const w=await getWeather(lat,lon);
 
-        const city = await getCity(lat,lon);
-        const w = await getWeather(lat,lon);
+    document.getElementById("city").innerText=city;
+    document.getElementById("temp").innerText=
+        Math.round(w.current_weather.temperature)+"°";
 
-        document.getElementById("city").innerText = city;
-        document.getElementById("temp").innerText =
-            Math.round(w.current_weather.temperature)+"°";
+    document.getElementById("desc").innerText=
+        "Wind "+w.current_weather.windspeed+" km/h";
 
-        document.getElementById("desc").innerText =
-            "Wind " + w.current_weather.windspeed + " km/h";
+    setBg(w.current_weather.weathercode);
 
-        setBackground(w.current_weather.weathercode);
+    const week=document.getElementById("week");
+    week.innerHTML="";
 
-        /* week */
-        let week=document.getElementById("week");
-        week.innerHTML="";
+    for(let i=0;i<w.daily.time.length;i++){
+        let d=document.createElement("div");
+        d.className="day";
+        d.innerHTML=`
+            <div>${w.daily.time[i].slice(5)}</div>
+            <div>${Math.round(w.daily.temperature_2m_min[i])}°</div>
+            <div>${Math.round(w.daily.temperature_2m_max[i])}°</div>
+        `;
+        week.appendChild(d);
+    }
 
-        for(let i=0;i<w.daily.time.length;i++){
-            let d=document.createElement("div");
-            d.className="day";
-            d.innerHTML=
-            `<div>${w.daily.time[i].slice(5)}</div>
-             <div>${Math.round(w.daily.temperature_2m_min[i])}°</div>
-             <div>${Math.round(w.daily.temperature_2m_max[i])}°</div>`;
-            week.appendChild(d);
-        }
-
-    });
-}
-
-init();
+});
 </script>
 
 </body>
