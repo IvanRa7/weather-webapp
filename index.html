@@ -9,68 +9,87 @@
       margin: 0;
       font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", Arial;
       color: white;
-      text-align: center;
+      background: linear-gradient(180deg, #0f2027, #203a43, #2c5364);
       overflow-x: hidden;
-      background: linear-gradient(180deg, #1e3c72, #2a5298);
     }
 
-    .wrap {
-      padding: 25px;
+    .container {
+      padding: 20px;
     }
 
     .city {
-      font-size: 22px;
-      opacity: 0.9;
+      text-align: center;
+      font-size: 18px;
+      opacity: 0.85;
       margin-top: 10px;
     }
 
     .temp {
-      font-size: 80px;
+      text-align: center;
+      font-size: 92px;
       font-weight: 200;
       margin: 10px 0;
     }
 
-    .desc {
-      font-size: 18px;
-      opacity: 0.9;
-      margin-bottom: 20px;
+    .status {
+      text-align: center;
+      font-size: 16px;
+      opacity: 0.8;
     }
 
     .card {
-      background: rgba(255,255,255,0.12);
-      backdrop-filter: blur(10px);
+      background: rgba(255,255,255,0.10);
+      backdrop-filter: blur(12px);
       border-radius: 18px;
       padding: 15px;
-      margin: 10px;
+      margin-top: 15px;
     }
 
     .row {
       display: flex;
       justify-content: space-between;
+      padding: 8px 0;
       font-size: 14px;
       opacity: 0.9;
     }
 
+    .forecast {
+      display: flex;
+      overflow-x: auto;
+      gap: 10px;
+      padding: 10px 0;
+    }
+
+    .hour {
+      min-width: 70px;
+      text-align: center;
+      background: rgba(255,255,255,0.08);
+      padding: 10px;
+      border-radius: 12px;
+      font-size: 13px;
+    }
+
     button {
+      width: 100%;
       margin-top: 15px;
-      padding: 12px 18px;
+      padding: 12px;
       border-radius: 12px;
       border: none;
       background: white;
       color: black;
       font-weight: bold;
-      cursor: pointer;
     }
   </style>
 </head>
 
 <body>
 
-<div class="wrap">
-  <div class="city" id="city">📍 Определяем город...</div>
+<div class="container">
+
+  <div class="city" id="city">📍 Определение...</div>
 
   <div class="temp" id="temp">--°</div>
-  <div class="desc" id="desc">Загрузка...</div>
+  <div class="status" id="status">Загрузка погоды...</div>
 
   <button onclick="loadWeather()">🔄 Обновить</button>
 
@@ -83,37 +102,44 @@
       <span>🌬 Ветер</span>
       <span id="wind">-- км/ч</span>
     </div>
+    <div class="row">
+      <span>💧 Влажность</span>
+      <span id="hum">--%</span>
+    </div>
   </div>
 
   <div class="card">
-    <div id="advice">🧠 Рекомендации загружаются...</div>
+    <div>⏱ Почасовой прогноз</div>
+    <div class="forecast" id="forecast"></div>
   </div>
+
+  <div class="card">
+    <div id="advice">🧠 Рекомендация загружается...</div>
+  </div>
+
 </div>
 
 <script>
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-function getAdvice(temp, wind) {
+function getAdvice(temp) {
   if (temp < 0) return "🧊 Очень холодно — зимняя одежда";
-  if (temp < 10) return "🧥 Холодно — куртка обязательна";
+  if (temp < 10) return "🧥 Холодно — куртка нужна";
   if (temp < 20) return "👕 Лёгкая куртка";
-  if (temp >= 20) return "☀️ Тепло — лёгкая одежда";
-  if (wind > 30) return "🌬 Ветрено — оденься теплее";
-  return "👍 Комфортная погода";
+  return "☀️ Тёплая погода";
 }
 
 async function loadWeather() {
 
-  document.getElementById("desc").innerText = "Получаем данные...";
+  document.getElementById("status").innerText = "Определяем геолокацию...";
 
   navigator.geolocation.getCurrentPosition(async (pos) => {
 
     const lat = pos.coords.latitude;
     const lon = pos.coords.longitude;
 
-    // Open-Meteo API
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m&forecast_days=1`;
 
     const res = await fetch(url);
     const data = await res.json();
@@ -121,21 +147,37 @@ async function loadWeather() {
     const w = data.current_weather;
 
     const temp = Math.round(w.temperature);
-    const wind = Math.round(w.windspeed);
+    const wind = Math.round(windspeed = w.windspeed);
 
     document.getElementById("temp").innerText = temp + "°";
     document.getElementById("feels").innerText = temp + "°";
     document.getElementById("wind").innerText = wind + " км/ч";
+    document.getElementById("hum").innerText = "—";
 
-    document.getElementById("desc").innerText = "Сейчас на улице";
+    document.getElementById("status").innerText = "Сейчас";
 
-    document.getElementById("advice").innerText = getAdvice(temp, wind);
+    document.getElementById("advice").innerText = getAdvice(temp);
 
-    document.getElementById("city").innerText = "📍 Ваше местоположение";
+    // Почасовой прогноз (упрощённый)
+    const forecast = document.getElementById("forecast");
+    forecast.innerHTML = "";
+
+    for (let i = 0; i < 12; i++) {
+      const t = data.hourly.temperature_2m[i];
+
+      const div = document.createElement("div");
+      div.className = "hour";
+      div.innerHTML = `${i}:00<br><b>${Math.round(t)}°</b>`;
+      forecast.appendChild(div);
+    }
+
+    document.getElementById("city").innerText = "📍 Ваш регион";
 
   });
 
 }
+
+loadWeather();
 </script>
 
 </body>
