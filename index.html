@@ -12,51 +12,48 @@ body {
   overflow:hidden;
 }
 
-/* 🎨 BACKGROUND */
+/* 🌈 dynamic background */
 #bg {
   position:fixed;
   width:100%;
   height:100%;
-  top:0;
-  left:0;
-  z-index:-2;
-  transition:1s;
+  z-index:-3;
+  transition:1.2s;
 }
 
-/* ☁️ CLOUDS / RAIN CANVAS */
+/* 🌧 canvas effects */
 canvas {
   position:fixed;
   top:0;
   left:0;
-  z-index:-1;
+  z-index:-2;
 }
 
 /* UI */
-.container {
-  padding:20px;
-}
+.container { padding:20px; }
 
 .city {
   text-align:center;
-  opacity:.8;
+  opacity:.85;
   font-size:18px;
 }
 
 .temp {
   text-align:center;
-  font-size:92px;
+  font-size:96px;
   font-weight:200;
 }
 
 .desc {
   text-align:center;
-  opacity:.85;
+  opacity:.8;
+  margin-bottom:10px;
 }
 
 .card {
-  background:rgba(255,255,255,0.12);
-  backdrop-filter: blur(16px);
-  border-radius:18px;
+  background:rgba(255,255,255,0.10);
+  backdrop-filter: blur(18px);
+  border-radius:20px;
   padding:14px;
   margin-top:12px;
 }
@@ -66,8 +63,10 @@ canvas {
   justify-content:space-between;
   padding:6px 0;
   font-size:14px;
+  opacity:.9;
 }
 
+/* hourly */
 .hourly {
   display:flex;
   overflow-x:auto;
@@ -78,16 +77,26 @@ canvas {
   min-width:70px;
   text-align:center;
   background:rgba(255,255,255,0.08);
-  padding:8px;
-  border-radius:12px;
-  font-size:13px;
+  padding:10px;
+  border-radius:14px;
 }
 
+/* daily */
+.day {
+  display:flex;
+  justify-content:space-between;
+  padding:10px;
+  border-radius:14px;
+  background:rgba(255,255,255,0.08);
+  margin-top:8px;
+}
+
+/* button */
 button {
   width:100%;
   margin-top:12px;
   padding:12px;
-  border-radius:12px;
+  border-radius:14px;
   border:none;
   font-weight:bold;
   background:white;
@@ -98,24 +107,30 @@ button {
 <body>
 
 <div id="bg"></div>
-<canvas id="rain"></canvas>
+<canvas id="fx"></canvas>
 
 <div class="container">
 
-<div class="city" id="city">📍 Loading...</div>
+<div class="city" id="city">📍 locating...</div>
 <div class="temp" id="temp">--°</div>
-<div class="desc" id="desc">...</div>
+<div class="desc" id="desc">loading...</div>
 
-<button onclick="load()">🔄 Refresh</button>
+<button onclick="load()">🔄 refresh</button>
 
 <div class="card">
-  <div class="row"><span>🌡 Feels</span><span id="feel">--°</span></div>
-  <div class="row"><span>💨 Wind</span><span id="wind">--</span></div>
+  <div class="row"><span>🌡 feels like</span><span id="feel">--°</span></div>
+  <div class="row"><span>💨 wind</span><span id="wind">--</span></div>
+  <div class="row"><span>💧 humidity</span><span id="hum">--</span></div>
 </div>
 
 <div class="card">
-  <div>⏱ Hourly</div>
+  <div>⏱ hourly</div>
   <div class="hourly" id="hourly"></div>
+</div>
+
+<div class="card">
+  <div>📆 7 days</div>
+  <div id="daily"></div>
 </div>
 
 </div>
@@ -124,71 +139,69 @@ button {
 const tg=window.Telegram.WebApp;
 tg.expand();
 
-/* 🌧 RAIN ANIMATION */
-const canvas=document.getElementById("rain");
-const ctx=canvas.getContext("2d");
-canvas.width=window.innerWidth;
-canvas.height=window.innerHeight;
+/* 🌧 FX ENGINE (rain/snow) */
+const c=document.getElementById("fx");
+const ctx=c.getContext("2d");
+c.width=innerWidth;
+c.height=innerHeight;
 
-let drops=[];
+let particles=[];
 
-function createRain(){
-drops=[];
+function makeRain(){
+particles=[];
 for(let i=0;i<120;i++){
-drops.push({
-x:Math.random()*canvas.width,
-y:Math.random()*canvas.height,
-l:Math.random()*20,
+particles.push({
+x:Math.random()*c.width,
+y:Math.random()*c.height,
+l:Math.random()*18,
 s:Math.random()*5+2
 });
 }
 }
 
-function drawRain(){
-ctx.clearRect(0,0,canvas.width,canvas.height);
-ctx.strokeStyle="rgba(255,255,255,0.3)";
-ctx.lineWidth=1;
-
-for(let d of drops){
+function draw(){
+ctx.clearRect(0,0,c.width,c.height);
+ctx.strokeStyle="rgba(255,255,255,0.25)";
+for(let p of particles){
 ctx.beginPath();
-ctx.moveTo(d.x,d.y);
-ctx.lineTo(d.x,d.y+d.l);
+ctx.moveTo(p.x,p.y);
+ctx.lineTo(p.x,p.y+p.l);
 ctx.stroke();
-
-d.y+=d.s;
-if(d.y>canvas.height){
-d.y=-20;
-d.x=Math.random()*canvas.width;
+p.y+=p.s;
+if(p.y>c.height){p.y=0;p.x=Math.random()*c.width;}
 }
+requestAnimationFrame(draw);
 }
 
-requestAnimationFrame(drawRain);
-}
+/* 🎨 background logic */
+function setBg(t){
+const bg=document.getElementById("bg");
 
-/* 🎨 BACKGROUND */
-function setBg(temp){
-if(temp<0){
-document.getElementById("bg").style.background="linear-gradient(180deg,#0f2027,#203a43)";
-createRain();
+if(t<0){
+bg.style.background="linear-gradient(180deg,#0f2027,#203a43)";
+makeRain();
 }
-else if(temp<15){
-document.getElementById("bg").style.background="linear-gradient(180deg,#2c3e50,#3498db)";
-createRain();
+else if(t<10){
+bg.style.background="linear-gradient(180deg,#2c3e50,#3498db)";
+makeRain();
+}
+else if(t<20){
+bg.style.background="linear-gradient(180deg,#3a7bd5,#3a6073)";
 }
 else{
-document.getElementById("bg").style.background="linear-gradient(180deg,#f12711,#f5af19)";
+bg.style.background="linear-gradient(180deg,#f12711,#f5af19)";
 }
 }
 
-/* 🧠 ADVICE */
+/* 🧠 advice */
 function advice(t){
-if(t<0) return "🧊 Extreme cold";
-if(t<10) return "🧥 Jacket needed";
-if(t<20) return "👕 Light jacket";
-return "☀️ Warm";
+if(t<0) return "🧊 extreme cold";
+if(t<10) return "🧥 jacket needed";
+if(t<20) return "👕 light jacket";
+return "☀️ warm weather";
 }
 
-/* 🌤 LOAD */
+/* 🌤 main */
 async function load(){
 
 navigator.geolocation.getCurrentPosition(async(pos)=>{
@@ -196,20 +209,21 @@ navigator.geolocation.getCurrentPosition(async(pos)=>{
 const lat=pos.coords.latitude;
 const lon=pos.coords.longitude;
 
-const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m`;
+const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m&daily=temperature_2m_max,temperature_2m_min&forecast_days=7`;
 
 const r=await fetch(url);
 const d=await r.json();
 
 const w=d.current_weather;
-
 const t=Math.round(w.temperature);
 
 document.getElementById("temp").innerText=t+"°";
 document.getElementById("feel").innerText=t+"°";
 document.getElementById("wind").innerText=w.windspeed+" km/h";
+document.getElementById("hum").innerText="—";
 
 document.getElementById("desc").innerText=advice(t);
+document.getElementById("city").innerText="📍 your location";
 
 setBg(t);
 
@@ -220,13 +234,21 @@ for(let i=0;i<12;i++){
 h.innerHTML+=`<div class="hour">${i}:00<br><b>${Math.round(d.hourly.temperature_2m[i])}°</b></div>`;
 }
 
-document.getElementById("city").innerText="📍 Your location";
+/* daily */
+let dd=document.getElementById("daily");
+dd.innerHTML="";
+for(let i=0;i<7;i++){
+dd.innerHTML+=`
+<div class="day">
+<span>Day ${i+1}</span>
+<span>${d.daily.temperature_2m_min[i]}° / ${d.daily.temperature_2m_max[i]}°</span>
+</div>`;
+}
 
-/* rain start */
-drawRain();
+/* start fx */
+draw();
 
 });
-
 }
 
 load();
