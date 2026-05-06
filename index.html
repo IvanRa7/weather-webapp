@@ -3,6 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
+
   <style>
     body {
       font-family: Arial;
@@ -11,26 +12,83 @@
       text-align: center;
       padding: 20px;
     }
+
     .card {
       background: #1e293b;
       padding: 20px;
       border-radius: 15px;
       margin-top: 20px;
     }
+
+    .temp {
+      font-size: 32px;
+      margin: 10px 0;
+    }
+
+    button {
+      padding: 10px 15px;
+      border: none;
+      border-radius: 10px;
+      background: #38bdf8;
+      color: black;
+      font-weight: bold;
+      cursor: pointer;
+      margin-top: 10px;
+    }
   </style>
 </head>
+
 <body>
 
 <h2>🌤 Weather App</h2>
 
 <div class="card">
-  <p>📍 WebApp работает</p>
-  <p>Теперь нужно подключить backend (бот отправляет данные)</p>
+  <p id="status">📍 Нажми кнопку чтобы получить погоду</p>
+
+  <div class="temp" id="temp"></div>
+  <div id="advice"></div>
+
+  <button onclick="getWeather()">📍 Получить погоду</button>
 </div>
 
 <script>
 const tg = window.Telegram.WebApp;
 tg.expand();
+
+function getAdvice(temp) {
+  if (temp < 0) return "🧊 Очень холодно — зимняя одежда";
+  if (temp < 10) return "🧥 Холодно — куртка нужна";
+  if (temp < 20) return "👕 Лёгкая куртка";
+  return "☀️ Жарко — лёгкая одежда";
+}
+
+function getWeather() {
+  document.getElementById("status").innerText = "📡 Получаем геолокацию...";
+
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+
+    const lat = pos.coords.latitude;
+    const lon = pos.coords.longitude;
+
+    document.getElementById("status").innerText = "🌍 Загружаем погоду...";
+
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`;
+
+    const res = await fetch(url);
+    const data = await res.json();
+
+    const temp = data.current_weather.temperature;
+
+    document.getElementById("temp").innerText = "🌡 " + temp + "°C";
+    document.getElementById("advice").innerText = getAdvice(temp);
+
+    document.getElementById("status").innerText = "✅ Готово";
+
+  }, () => {
+    document.getElementById("status").innerText =
+      "❌ Разреши геолокацию";
+  });
+}
 </script>
 
 </body>
