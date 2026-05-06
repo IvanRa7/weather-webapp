@@ -24,20 +24,13 @@
 <h2>🌤 Weather App</h2>
 
 <div class="card">
-  <p id="temp">Загрузка...</p>
-  <p id="advice"></p>
+  <p>📍 WebApp работает</p>
+  <p>Теперь нужно подключить backend (бот отправляет данные)</p>
 </div>
 
 <script>
 const tg = window.Telegram.WebApp;
 tg.expand();
-
-fetch("https://YOUR-API/weather?user_id=" + tg.initDataUnsafe.user.id)
-.then(r => r.json())
-.then(d => {
-  document.getElementById("temp").innerText = "🌡 " + d.temp + "°C";
-  document.getElementById("advice").innerText = d.advice;
-});
 </script>
 
 </body>
