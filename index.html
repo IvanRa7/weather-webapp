@@ -9,17 +9,7 @@ body{
 margin:0;
 font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",Arial;
 color:white;
-background:#000;
 overflow:hidden;
-}
-
-/* SCROLL FIX */
-.scroll{
-height:100vh;
-overflow-y:auto;
--webkit-overflow-scrolling:touch;
-position:relative;
-padding-bottom:100px;
 }
 
 /* BACKGROUND */
@@ -31,65 +21,41 @@ z-index:-5;
 transition:1s;
 }
 
-/* CANVAS */
-canvas{
-position:fixed;
-top:0;
-left:0;
-pointer-events:none;
+/* SCROLL */
+.scroll{
+height:100vh;
+overflow-y:auto;
+-webkit-overflow-scrolling:touch;
+position:relative;
 }
 
 /* UI */
-.container{padding:22px;}
+.container{padding:20px;}
 
 .city{text-align:center;opacity:.8;font-size:18px;}
-
-.temp{
-text-align:center;
-font-size:110px;
-font-weight:200;
-}
-
+.temp{text-align:center;font-size:110px;font-weight:200;}
 .desc{text-align:center;opacity:.8}
 
 /* CARDS */
 .card{
 background:rgba(255,255,255,0.08);
 backdrop-filter:blur(20px);
-border-radius:20px;
+border-radius:18px;
 padding:14px;
-margin-top:12px;
+margin-top:10px;
 }
 
 .row{
 display:flex;
 justify-content:space-between;
-padding:6px 0;
 }
 
-/* hourly */
-.hourly{
-display:flex;
-overflow-x:auto;
-gap:10px;
-}
-
-.hour{
-min-width:70px;
-text-align:center;
-padding:10px;
-border-radius:14px;
-background:rgba(255,255,255,0.08);
-}
-
-/* daily */
-.day{
-display:flex;
-justify-content:space-between;
-padding:10px;
-background:rgba(255,255,255,0.06);
-margin-top:6px;
-border-radius:12px;
+/* ANIMATED CLOUDS */
+canvas{
+position:fixed;
+top:0;
+left:0;
+pointer-events:none;
 }
 </style>
 </head>
@@ -97,13 +63,9 @@ border-radius:12px;
 <body>
 
 <div id="bg"></div>
-
-<canvas id="fx"></canvas>
-<canvas id="stars"></canvas>
 <canvas id="clouds"></canvas>
 
 <div class="scroll">
-
 <div class="container">
 
 <div class="city" id="city">📍 loading...</div>
@@ -115,152 +77,101 @@ border-radius:12px;
 <div class="row"><span>💨 wind</span><span id="wind"></span></div>
 </div>
 
-<div class="card">
-<div>📊 hourly</div>
-<div class="hourly" id="hourly"></div>
 </div>
-
-<div class="card">
-<div>📆 week</div>
-<div id="daily"></div>
-</div>
-
-</div>
-
 </div>
 
 <script>
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-/* ================= CITY ================= */
-async function getCity(lat, lon){
+/* ================= GEO STORAGE ================= */
+const GEO_KEY="geo_v1";
+const WEATHER_KEY="weather_v1";
+
+/* ================= DISTANCE (KM) ================= */
+function distance(lat1,lon1,lat2,lon2){
+const R=6371;
+const dLat=(lat2-lat1)*Math.PI/180;
+const dLon=(lon2-lon1)*Math.PI/180;
+const a=
+Math.sin(dLat/2)**2+
+Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*
+Math.sin(dLon/2)**2;
+return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+}
+
+/* ================= REVERSE GEOCODING ================= */
+async function getCity(lat,lon){
 try{
-const r = await fetch(`https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&language=ru`);
-const d = await r.json();
-return d?.results?.[0]?.name || "Unknown";
-}catch{return "Unknown";}
-}
-
-/* ================= CLOUDS ================= */
-const c = document.getElementById("clouds");
-const cx = c.getContext("2d");
-c.width = innerWidth;
-c.height = innerHeight;
-
-let clouds=[];
-
-function initClouds(){
-clouds=[];
-for(let i=0;i<15;i++){
-clouds.push({
-x:Math.random()*c.width,
-y:Math.random()*c.height*0.5,
-w:120+Math.random()*200,
-h:60+Math.random()*40,
-s:0.3+Math.random()*0.5
-});
+const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}`);
+const d=await r.json();
+return d.address.city || d.address.town || d.address.village || "Unknown";
+}catch{
+return "Unknown";
 }
 }
-
-function drawClouds(){
-cx.clearRect(0,0,c.width,c.height);
-
-for(let cl of clouds){
-cx.fillStyle="rgba(255,255,255,0.07)";
-cx.beginPath();
-cx.ellipse(cl.x,cl.y,cl.w,cl.h,0,0,Math.PI*2);
-cx.fill();
-
-cl.x += cl.s;
-
-if(cl.x > c.width+200){
-cl.x = -200;
-cl.y = Math.random()*c.height*0.5;
-}
-}
-
-requestAnimationFrame(drawClouds);
-}
-
-initClouds();
-drawClouds();
-
-/* ================= STARS ================= */
-const s=document.getElementById("stars");
-const sx=s.getContext("2d");
-s.width=innerWidth;
-s.height=innerHeight;
-
-let stars=[];
-
-function initStars(){
-for(let i=0;i<120;i++){
-stars.push({
-x:Math.random()*s.width,
-y:Math.random()*s.height,
-r:Math.random()*1.5
-});
-}
-}
-
-function drawStars(){
-sx.clearRect(0,0,s.width,s.height);
-for(let st of stars){
-sx.beginPath();
-sx.arc(st.x,st.y,st.r,0,Math.PI*2);
-sx.fillStyle="white";
-sx.fill();
-}
-requestAnimationFrame(drawStars);
-}
-
-initStars();
-drawStars();
 
 /* ================= WEATHER ================= */
-async function load(){
-
-navigator.geolocation.getCurrentPosition(async(p)=>{
-
-const lat=p.coords.latitude;
-const lon=p.coords.longitude;
-
-const r=await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m&daily=temperature_2m_max,temperature_2m_min&forecast_days=7`);
-
-const d=await r.json();
-const w=d.current_weather;
-
-const t=Math.round(w.temperature);
-
-document.getElementById("temp").innerText=t+"°";
-document.getElementById("feel").innerText=t+"°";
-document.getElementById("wind").innerText=w.windspeed+" km/h";
-
-document.getElementById("city").innerText="📍 "+await getCity(lat,lon);
-
-/* hourly */
-let h=document.getElementById("hourly");
-h.innerHTML="";
-for(let i=0;i<10;i++){
-h.innerHTML+=`<div class="hour">${Math.round(d.hourly.temperature_2m[i])}°</div>`;
+async function getWeather(lat,lon){
+const r=await fetch(
+`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`
+);
+return await r.json();
 }
 
-/* daily */
-let dd=document.getElementById("daily");
-dd.innerHTML="";
-for(let i=0;i<7;i++){
-dd.innerHTML+=`
-<div class="day">
-<span>Day ${i+1}</span>
-<span>${d.daily.temperature_2m_min[i]}° / ${d.daily.temperature_2m_max[i]}°</span>
-</div>`;
+/* ================= BACKGROUND ================= */
+function setBG(temp){
+let bg=document.getElementById("bg");
+
+if(temp<0) bg.style.background="linear-gradient(#0b132b,#1c2541)";
+else if(temp<10) bg.style.background="linear-gradient(#1e3c72,#2a5298)";
+else if(temp<20) bg.style.background="linear-gradient(#2b5876,#4e4376)";
+else bg.style.background="linear-gradient(#f12711,#f5af19)";
 }
+
+/* ================= SMART LOCATION ================= */
+async function update(){
+
+navigator.geolocation.getCurrentPosition(async(pos)=>{
+
+const lat=pos.coords.latitude;
+const lon=pos.coords.longitude;
+
+let saved=JSON.parse(localStorage.getItem(GEO_KEY)||"null");
+
+if(saved){
+let d=distance(lat,lon,saved.lat,saved.lon);
+if(d<2){
+console.log("📍 no significant movement");
+return;
+}
+}
+
+/* save new geo */
+localStorage.setItem(GEO_KEY,JSON.stringify({lat,lon}));
+
+/* weather */
+let w=await getWeather(lat,lon);
+let cur=w.current_weather;
+
+/* city */
+let city=await getCity(lat,lon);
+
+/* UI */
+document.getElementById("city").innerText="📍 "+city;
+document.getElementById("temp").innerText=Math.round(cur.temperature)+"°";
+document.getElementById("feel").innerText=Math.round(cur.temperature)+"°";
+document.getElementById("wind").innerText=cur.windspeed+" km/h";
+
+setBG(cur.temperature);
 
 });
 }
 
-load();
+/* ================= AUTO UPDATE ================= */
+update();
+setInterval(update, 5*60*1000); // каждые 5 минут
+
 </script>
 
 </body>
