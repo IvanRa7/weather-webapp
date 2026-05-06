@@ -5,82 +5,46 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-<title>Weather App</title>
+<title>Weather</title>
 
 <style>
-body {
+html, body {
     margin:0;
+    height:100%;
+    overflow:hidden;
     font-family:-apple-system,BlinkMacSystemFont,sans-serif;
     color:white;
-    height:100vh;
-    overflow:hidden; /* важно: убираем body scroll */
 }
 
-/* ===== BACKGROUND ===== */
+/* ===== ROOT LAYERS ===== */
 #bg {
     position:fixed;
-    width:100%;
-    height:100%;
-    top:0;
-    left:0;
-    z-index:-10;
+    inset:0;
+    z-index:0;
     background: linear-gradient(180deg,#1b2a4a,#0b1220);
 }
 
-/* ===== IMPORTANT FIX ===== */
-/* ВСЕ АНИМАЦИИ НЕ ПЕРЕХВАТЫВАЮТ КЛИКИ */
+/* ===== WEATHER LAYER (IMPORTANT FIX) ===== */
+#weather-layer {
+    position:fixed;
+    inset:0;
+    z-index:1;
+    pointer-events:none; /* 🔥 важно */
+}
+
+/* clouds / rain / snow inside layer */
 .cloud, .drop, .snow {
-    pointer-events:none; /* 🔥 КЛЮЧЕВАЯ ФИКСАЦИЯ */
-}
-
-/* CLOUDS */
-.cloud {
     position:absolute;
-    width:200px;
-    height:60px;
-    background:rgba(255,255,255,0.15);
-    border-radius:50px;
-    animation: moveClouds linear infinite;
+    pointer-events:none;
 }
 
-@keyframes moveClouds {
-    from { transform: translateX(-300px); }
-    to { transform: translateX(120vw); }
-}
-
-/* RAIN */
-.drop {
-    position:absolute;
-    width:2px;
-    height:20px;
-    background:rgba(255,255,255,0.4);
-    animation: fall linear infinite;
-}
-
-@keyframes fall {
-    to { transform: translateY(100vh); }
-}
-
-/* SNOW */
-.snow {
-    position:absolute;
-    width:6px;
-    height:6px;
-    background:white;
-    border-radius:50%;
-    animation: snowFall linear infinite;
-}
-
-@keyframes snowFall {
-    to { transform: translateY(100vh); }
-}
-
-/* ===== UI SCROLL FIX ===== */
+/* ===== UI LAYER ===== */
 .container {
     position:relative;
-    z-index:5;
+    z-index:10;
     height:100vh;
-    overflow-y:auto;      /* 🔥 ВКЛЮЧАЕМ СКРОЛЛ */
+    overflow-y:auto;     /* 🔥 СКРОЛЛ ТОЛЬКО ЗДЕСЬ */
+    -webkit-overflow-scrolling:touch;
     padding:20px;
     box-sizing:border-box;
 }
@@ -98,12 +62,11 @@ body {
 .temp { font-size:64px; font-weight:200; }
 .small { opacity:0.7; }
 
-/* ===== WEEK FIX ===== */
+/* WEEK SCROLL FIX */
 .week {
     display:flex;
     gap:10px;
     overflow-x:auto;
-    padding-bottom:10px;
 }
 
 .day {
@@ -113,12 +76,50 @@ body {
     border-radius:12px;
     text-align:center;
 }
+
+/* ===== ANIMATIONS ===== */
+.cloud {
+    width:180px;
+    height:60px;
+    background:rgba(255,255,255,0.15);
+    border-radius:50px;
+    animation: move 40s linear infinite;
+}
+
+@keyframes move {
+    from { transform: translateX(-200px); }
+    to { transform: translateX(120vw); }
+}
+
+.drop {
+    width:2px;
+    height:18px;
+    background:rgba(255,255,255,0.4);
+    animation: fall linear infinite;
+}
+
+@keyframes fall {
+    to { transform: translateY(100vh); }
+}
+
+.snow {
+    width:6px;
+    height:6px;
+    background:white;
+    border-radius:50%;
+    animation: snow linear infinite;
+}
+
+@keyframes snow {
+    to { transform: translateY(100vh); }
+}
 </style>
 </head>
 
 <body>
 
 <div id="bg"></div>
+<div id="weather-layer"></div>
 
 <div class="container">
 
@@ -136,105 +137,93 @@ body {
 </div>
 
 <script>
-const tg = window.Telegram.WebApp;
-tg.expand();
+const layer = document.getElementById("weather-layer");
 
-/* GEO */
-async function getCity(lat, lon){
-    const r = await fetch(
-        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=ru`
-    );
-    const d = await r.json();
-    return d.city || d.locality || "Unknown";
+/* ===== CLEAN ===== */
+function clearFX(){
+    layer.innerHTML="";
 }
 
-/* WEATHER */
-async function getWeather(lat, lon){
-    const r = await fetch(
-        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`
-    );
-    return await r.json();
-}
-
-/* CLEAR EFFECTS */
-function clearEffects(){
-    document.querySelectorAll(".cloud,.drop,.snow").forEach(e=>e.remove());
-}
-
-/* CLOUDS */
+/* ===== FX ===== */
 function clouds(){
-    for(let i=0;i<5;i++){
+    for(let i=0;i<4;i++){
         let c=document.createElement("div");
         c.className="cloud";
         c.style.top=Math.random()*40+"vh";
-        c.style.animationDuration=(20+Math.random()*40)+"s";
-        document.body.appendChild(c);
+        c.style.left="-200px";
+        c.style.animationDuration=(30+Math.random()*20)+"s";
+        layer.appendChild(c);
     }
 }
 
-/* RAIN */
 function rain(){
     for(let i=0;i<80;i++){
         let d=document.createElement("div");
         d.className="drop";
         d.style.left=Math.random()*100+"vw";
         d.style.animationDuration=(0.5+Math.random())+"s";
-        document.body.appendChild(d);
+        layer.appendChild(d);
     }
 }
 
-/* SNOW */
 function snow(){
     for(let i=0;i<60;i++){
         let s=document.createElement("div");
         s.className="snow";
         s.style.left=Math.random()*100+"vw";
-        s.style.animationDuration=(3+Math.random()*5)+"s";
-        document.body.appendChild(s);
+        s.style.animationDuration=(3+Math.random()*4)+"s";
+        layer.appendChild(s);
     }
 }
 
-/* BACKGROUND */
-function setBg(code){
-    clearEffects();
+/* ===== WEATHER BG ===== */
+function setWeather(code){
 
-    const bg=document.getElementById("bg");
+    clearFX();
 
     if(code<=2){
-        bg.style.background="linear-gradient(180deg,#4facfe,#0b1220)";
+        document.getElementById("bg").style.background =
+            "linear-gradient(180deg,#4facfe,#0b1220)";
         clouds();
     }
     else if(code>=51 && code<=67){
-        bg.style.background="linear-gradient(180deg,#3a7bd5,#000428)";
+        document.getElementById("bg").style.background =
+            "linear-gradient(180deg,#3a7bd5,#000428)";
         rain();
     }
     else if(code>=71 && code<=77){
-        bg.style.background="linear-gradient(180deg,#e6dada,#274046)";
+        document.getElementById("bg").style.background =
+            "linear-gradient(180deg,#e6dada,#274046)";
         snow();
-    }
-    else{
-        bg.style.background="linear-gradient(180deg,#1b2a4a,#0b1220)";
-        clouds();
     }
 }
 
-/* INIT */
+/* ===== GEO ===== */
 navigator.geolocation.getCurrentPosition(async (pos)=>{
 
     const lat=pos.coords.latitude;
     const lon=pos.coords.longitude;
 
-    const city=await getCity(lat,lon);
-    const w=await getWeather(lat,lon);
+    const cityRes=await fetch(
+        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=ru`
+    );
+    const cityData=await cityRes.json();
 
-    document.getElementById("city").innerText=city;
-    document.getElementById("temp").innerText=
+    const wRes=await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`
+    );
+    const w=await wRes.json();
+
+    document.getElementById("city").innerText =
+        cityData.city || "Unknown";
+
+    document.getElementById("temp").innerText =
         Math.round(w.current_weather.temperature)+"°";
 
-    document.getElementById("desc").innerText=
+    document.getElementById("desc").innerText =
         "Wind "+w.current_weather.windspeed+" km/h";
 
-    setBg(w.current_weather.weathercode);
+    setWeather(w.current_weather.weathercode);
 
     const week=document.getElementById("week");
     week.innerHTML="";
