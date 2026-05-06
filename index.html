@@ -1,183 +1,235 @@
 <!DOCTYPE html>
 <html>
 <head>
-  <meta charset="UTF-8">
-  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+<meta charset="UTF-8">
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-  <style>
-    body {
-      margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", Arial;
-      color: white;
-      background: linear-gradient(180deg, #0f2027, #203a43, #2c5364);
-      overflow-x: hidden;
-    }
+<style>
+body {
+  margin:0;
+  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",Arial;
+  color:white;
+  overflow:hidden;
+}
 
-    .container {
-      padding: 20px;
-    }
+/* 🎨 BACKGROUND */
+#bg {
+  position:fixed;
+  width:100%;
+  height:100%;
+  top:0;
+  left:0;
+  z-index:-2;
+  transition:1s;
+}
 
-    .city {
-      text-align: center;
-      font-size: 18px;
-      opacity: 0.85;
-      margin-top: 10px;
-    }
+/* ☁️ CLOUDS / RAIN CANVAS */
+canvas {
+  position:fixed;
+  top:0;
+  left:0;
+  z-index:-1;
+}
 
-    .temp {
-      text-align: center;
-      font-size: 92px;
-      font-weight: 200;
-      margin: 10px 0;
-    }
+/* UI */
+.container {
+  padding:20px;
+}
 
-    .status {
-      text-align: center;
-      font-size: 16px;
-      opacity: 0.8;
-    }
+.city {
+  text-align:center;
+  opacity:.8;
+  font-size:18px;
+}
 
-    .card {
-      background: rgba(255,255,255,0.10);
-      backdrop-filter: blur(12px);
-      border-radius: 18px;
-      padding: 15px;
-      margin-top: 15px;
-    }
+.temp {
+  text-align:center;
+  font-size:92px;
+  font-weight:200;
+}
 
-    .row {
-      display: flex;
-      justify-content: space-between;
-      padding: 8px 0;
-      font-size: 14px;
-      opacity: 0.9;
-    }
+.desc {
+  text-align:center;
+  opacity:.85;
+}
 
-    .forecast {
-      display: flex;
-      overflow-x: auto;
-      gap: 10px;
-      padding: 10px 0;
-    }
+.card {
+  background:rgba(255,255,255,0.12);
+  backdrop-filter: blur(16px);
+  border-radius:18px;
+  padding:14px;
+  margin-top:12px;
+}
 
-    .hour {
-      min-width: 70px;
-      text-align: center;
-      background: rgba(255,255,255,0.08);
-      padding: 10px;
-      border-radius: 12px;
-      font-size: 13px;
-    }
+.row {
+  display:flex;
+  justify-content:space-between;
+  padding:6px 0;
+  font-size:14px;
+}
 
-    button {
-      width: 100%;
-      margin-top: 15px;
-      padding: 12px;
-      border-radius: 12px;
-      border: none;
-      background: white;
-      color: black;
-      font-weight: bold;
-    }
-  </style>
+.hourly {
+  display:flex;
+  overflow-x:auto;
+  gap:10px;
+}
+
+.hour {
+  min-width:70px;
+  text-align:center;
+  background:rgba(255,255,255,0.08);
+  padding:8px;
+  border-radius:12px;
+  font-size:13px;
+}
+
+button {
+  width:100%;
+  margin-top:12px;
+  padding:12px;
+  border-radius:12px;
+  border:none;
+  font-weight:bold;
+  background:white;
+}
+</style>
 </head>
 
 <body>
 
+<div id="bg"></div>
+<canvas id="rain"></canvas>
+
 <div class="container">
 
-  <div class="city" id="city">📍 Определение...</div>
+<div class="city" id="city">📍 Loading...</div>
+<div class="temp" id="temp">--°</div>
+<div class="desc" id="desc">...</div>
 
-  <div class="temp" id="temp">--°</div>
-  <div class="status" id="status">Загрузка погоды...</div>
+<button onclick="load()">🔄 Refresh</button>
 
-  <button onclick="loadWeather()">🔄 Обновить</button>
+<div class="card">
+  <div class="row"><span>🌡 Feels</span><span id="feel">--°</span></div>
+  <div class="row"><span>💨 Wind</span><span id="wind">--</span></div>
+</div>
 
-  <div class="card">
-    <div class="row">
-      <span>🌡 Ощущается</span>
-      <span id="feels">--°</span>
-    </div>
-    <div class="row">
-      <span>🌬 Ветер</span>
-      <span id="wind">-- км/ч</span>
-    </div>
-    <div class="row">
-      <span>💧 Влажность</span>
-      <span id="hum">--%</span>
-    </div>
-  </div>
-
-  <div class="card">
-    <div>⏱ Почасовой прогноз</div>
-    <div class="forecast" id="forecast"></div>
-  </div>
-
-  <div class="card">
-    <div id="advice">🧠 Рекомендация загружается...</div>
-  </div>
+<div class="card">
+  <div>⏱ Hourly</div>
+  <div class="hourly" id="hourly"></div>
+</div>
 
 </div>
 
 <script>
-const tg = window.Telegram.WebApp;
+const tg=window.Telegram.WebApp;
 tg.expand();
 
-function getAdvice(temp) {
-  if (temp < 0) return "🧊 Очень холодно — зимняя одежда";
-  if (temp < 10) return "🧥 Холодно — куртка нужна";
-  if (temp < 20) return "👕 Лёгкая куртка";
-  return "☀️ Тёплая погода";
+/* 🌧 RAIN ANIMATION */
+const canvas=document.getElementById("rain");
+const ctx=canvas.getContext("2d");
+canvas.width=window.innerWidth;
+canvas.height=window.innerHeight;
+
+let drops=[];
+
+function createRain(){
+drops=[];
+for(let i=0;i<120;i++){
+drops.push({
+x:Math.random()*canvas.width,
+y:Math.random()*canvas.height,
+l:Math.random()*20,
+s:Math.random()*5+2
+});
+}
 }
 
-async function loadWeather() {
+function drawRain(){
+ctx.clearRect(0,0,canvas.width,canvas.height);
+ctx.strokeStyle="rgba(255,255,255,0.3)";
+ctx.lineWidth=1;
 
-  document.getElementById("status").innerText = "Определяем геолокацию...";
+for(let d of drops){
+ctx.beginPath();
+ctx.moveTo(d.x,d.y);
+ctx.lineTo(d.x,d.y+d.l);
+ctx.stroke();
 
-  navigator.geolocation.getCurrentPosition(async (pos) => {
+d.y+=d.s;
+if(d.y>canvas.height){
+d.y=-20;
+d.x=Math.random()*canvas.width;
+}
+}
 
-    const lat = pos.coords.latitude;
-    const lon = pos.coords.longitude;
+requestAnimationFrame(drawRain);
+}
 
-    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m&forecast_days=1`;
+/* 🎨 BACKGROUND */
+function setBg(temp){
+if(temp<0){
+document.getElementById("bg").style.background="linear-gradient(180deg,#0f2027,#203a43)";
+createRain();
+}
+else if(temp<15){
+document.getElementById("bg").style.background="linear-gradient(180deg,#2c3e50,#3498db)";
+createRain();
+}
+else{
+document.getElementById("bg").style.background="linear-gradient(180deg,#f12711,#f5af19)";
+}
+}
 
-    const res = await fetch(url);
-    const data = await res.json();
+/* 🧠 ADVICE */
+function advice(t){
+if(t<0) return "🧊 Extreme cold";
+if(t<10) return "🧥 Jacket needed";
+if(t<20) return "👕 Light jacket";
+return "☀️ Warm";
+}
 
-    const w = data.current_weather;
+/* 🌤 LOAD */
+async function load(){
 
-    const temp = Math.round(w.temperature);
-    const wind = Math.round(windspeed = w.windspeed);
+navigator.geolocation.getCurrentPosition(async(pos)=>{
 
-    document.getElementById("temp").innerText = temp + "°";
-    document.getElementById("feels").innerText = temp + "°";
-    document.getElementById("wind").innerText = wind + " км/ч";
-    document.getElementById("hum").innerText = "—";
+const lat=pos.coords.latitude;
+const lon=pos.coords.longitude;
 
-    document.getElementById("status").innerText = "Сейчас";
+const url=`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&hourly=temperature_2m`;
 
-    document.getElementById("advice").innerText = getAdvice(temp);
+const r=await fetch(url);
+const d=await r.json();
 
-    // Почасовой прогноз (упрощённый)
-    const forecast = document.getElementById("forecast");
-    forecast.innerHTML = "";
+const w=d.current_weather;
 
-    for (let i = 0; i < 12; i++) {
-      const t = data.hourly.temperature_2m[i];
+const t=Math.round(w.temperature);
 
-      const div = document.createElement("div");
-      div.className = "hour";
-      div.innerHTML = `${i}:00<br><b>${Math.round(t)}°</b>`;
-      forecast.appendChild(div);
-    }
+document.getElementById("temp").innerText=t+"°";
+document.getElementById("feel").innerText=t+"°";
+document.getElementById("wind").innerText=w.windspeed+" km/h";
 
-    document.getElementById("city").innerText = "📍 Ваш регион";
+document.getElementById("desc").innerText=advice(t);
 
-  });
+setBg(t);
+
+/* hourly */
+let h=document.getElementById("hourly");
+h.innerHTML="";
+for(let i=0;i<12;i++){
+h.innerHTML+=`<div class="hour">${i}:00<br><b>${Math.round(d.hourly.temperature_2m[i])}°</b></div>`;
+}
+
+document.getElementById("city").innerText="📍 Your location";
+
+/* rain start */
+drawRain();
+
+});
 
 }
 
-loadWeather();
+load();
 </script>
 
 </body>
