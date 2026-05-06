@@ -12,21 +12,21 @@ color:white;
 overflow:hidden;
 }
 
-/* 🌌 BACKGROUND */
+/* BACKGROUND */
 #bg{
 position:fixed;
 width:100%;
 height:100%;
-z-index:-3;
-transition:1.2s;
+z-index:-4;
+transition:1s;
 }
 
-/* 🌧 FX */
+/* FX LAYERS */
 canvas{
 position:fixed;
 top:0;
 left:0;
-z-index:-2;
+z-index:-3;
 }
 
 /* UI */
@@ -43,7 +43,7 @@ letter-spacing:-2px;
 
 .desc{text-align:center;opacity:.8}
 
-/* glass */
+/* GLASS */
 .card{
 background:rgba(255,255,255,0.08);
 backdrop-filter:blur(22px);
@@ -57,7 +57,6 @@ display:flex;
 justify-content:space-between;
 padding:6px 0;
 font-size:14px;
-opacity:.9;
 }
 
 /* hourly */
@@ -90,24 +89,15 @@ border-radius:14px;
 background:rgba(255,255,255,0.06);
 margin-top:6px;
 }
-
-/* button */
-button{
-width:100%;
-margin-top:12px;
-padding:12px;
-border-radius:14px;
-border:none;
-font-weight:bold;
-background:white;
-}
 </style>
 </head>
 
 <body>
 
 <div id="bg"></div>
+
 <canvas id="fx"></canvas>
+<canvas id="stars"></canvas>
 
 <div class="container">
 
@@ -115,16 +105,13 @@ background:white;
 <div class="temp" id="temp">--°</div>
 <div class="desc" id="desc">loading...</div>
 
-<button onclick="load()">🔄 refresh</button>
-
 <div class="card">
 <div class="row"><span>🌡 feels</span><span id="feel">--°</span></div>
 <div class="row"><span>💨 wind</span><span id="wind">--</span></div>
-<div class="row"><span>💧 humidity</span><span id="hum">--</span></div>
 </div>
 
 <div class="card">
-<div>📊 temperature curve</div>
+<div>📊 temperature graph</div>
 <canvas id="chart"></canvas>
 </div>
 
@@ -144,57 +131,140 @@ background:white;
 const tg=window.Telegram.WebApp;
 tg.expand();
 
-/* 🌧 FX engine */
-const c=document.getElementById("fx");
-const ctx=c.getContext("2d");
-c.width=innerWidth;
-c.height=innerHeight;
+/* ======================
+🌍 REVERSE GEOCODING
+====================== */
+async function getCity(lat, lon){
+  try{
+    const r = await fetch(
+      `https://geocoding-api.open-meteo.com/v1/reverse?latitude=${lat}&longitude=${lon}&language=ru`
+    );
+    const d = await r.json();
+    return d?.results?.[0]?.name || "Unknown";
+  }catch(e){
+    return "Unknown";
+  }
+}
 
-let p=[];
+/* ======================
+🌧 FX (rain / snow)
+====================== */
+const fx=document.getElementById("fx");
+const f=fx.getContext("2d");
+fx.width=innerWidth;
+fx.height=innerHeight;
 
-function weatherFX(type){
-p=[];
-for(let i=0;i<120;i++){
-p.push({
-x:Math.random()*c.width,
-y:Math.random()*c.height,
+let drops=[];
+
+function rain(){
+drops=[];
+for(let i=0;i<100;i++){
+drops.push({
+x:Math.random()*fx.width,
+y:Math.random()*fx.height,
 l:Math.random()*18,
-s:Math.random()*5+2
+s:Math.random()*4+2
 });
 }
 }
 
 function drawFX(){
-ctx.clearRect(0,0,c.width,c.height);
-ctx.strokeStyle="rgba(255,255,255,0.25)";
+f.clearRect(0,0,fx.width,fx.height);
 
-for(let d of p){
-ctx.beginPath();
-ctx.moveTo(d.x,d.y);
-ctx.lineTo(d.x,d.y+d.l);
-ctx.stroke();
+f.strokeStyle="rgba(255,255,255,0.25)";
+for(let d of drops){
+f.beginPath();
+f.moveTo(d.x,d.y);
+f.lineTo(d.x,d.y+d.l);
+f.stroke();
 
 d.y+=d.s;
-if(d.y>c.height){
+if(d.y>fx.height){
 d.y=0;
-d.x=Math.random()*c.width;
+d.x=Math.random()*fx.width;
 }
 }
 
 requestAnimationFrame(drawFX);
 }
 
-/* 🌌 background */
+/* ======================
+🌌 STARS (iOS night sky)
+====================== */
+const s=document.getElementById("stars");
+const sx=s.getContext("2d");
+s.width=innerWidth;
+s.height=innerHeight;
+
+let stars=[];
+
+function createStars(){
+stars=[];
+for(let i=0;i<140;i++){
+stars.push({
+x:Math.random()*s.width,
+y:Math.random()*s.height,
+r:Math.random()*1.5,
+o:Math.random()
+});
+}
+}
+
+function drawStars(){
+sx.clearRect(0,0,s.width,s.height);
+
+for(let st of stars){
+sx.beginPath();
+sx.arc(st.x,st.y,st.r,0,Math.PI*2);
+sx.fillStyle=`rgba(255,255,255,${st.o})`;
+sx.fill();
+}
+
+requestAnimationFrame(drawStars);
+}
+
+createStars();
+drawStars();
+
+/* 🌠 PARALLAX */
+document.addEventListener("mousemove",(e)=>{
+let x=(e.clientX/window.innerWidth-0.5)*10;
+let y=(e.clientY/window.innerHeight-0.5)*10;
+
+s.style.transform=`translate(${x}px,${y}px)`;
+});
+
+/* ======================
+⚡ LIGHTNING SYSTEM
+====================== */
+function lightning(){
+document.getElementById("bg").style.filter="brightness(3)";
+setTimeout(()=>{
+document.getElementById("bg").style.filter="brightness(1)";
+},120);
+}
+
+function stormCheck(t){
+if(t>15){
+setInterval(()=>{
+if(Math.random()<0.25) lightning();
+},3000);
+}
+}
+
+/* ======================
+🎨 BACKGROUND
+====================== */
 function bg(t){
 let b=document.getElementById("bg");
 
 if(t<0){
 b.style.background="linear-gradient(180deg,#0b132b,#1c2541)";
-weatherFX("snow");
+rain();
 }
 else if(t<10){
 b.style.background="linear-gradient(180deg,#1e3c72,#2a5298)";
-weatherFX("rain");
+rain();
 }
 else if(t<20){
 b.style.background="linear-gradient(180deg,#2b5876,#4e4376)";
@@ -204,15 +274,17 @@ b.style.background="linear-gradient(180deg,#f12711,#f5af19)";
 }
 }
 
-/* 📊 smooth chart */
+/* ======================
+📊 GRAPH
+====================== */
 function chart(data){
-const canvas=document.getElementById("chart");
-const g=canvas.getContext("2d");
+const c=document.getElementById("chart");
+const g=c.getContext("2d");
 
-canvas.width=innerWidth-50;
-canvas.height=140;
+c.width=innerWidth-50;
+c.height=140;
 
-g.clearRect(0,0,canvas.width,canvas.height);
+g.clearRect(0,0,c.width,c.height);
 
 let max=Math.max(...data);
 let min=Math.min(...data);
@@ -222,8 +294,8 @@ g.lineWidth=3;
 g.beginPath();
 
 data.forEach((v,i)=>{
-let x=i*(canvas.width/data.length);
-let y=canvas.height-((v-min)/(max-min))*110;
+let x=i*(c.width/data.length);
+let y=c.height-((v-min)/(max-min))*110;
 
 if(i==0)g.moveTo(x,y);
 else g.lineTo(x,y);
@@ -232,15 +304,9 @@ else g.lineTo(x,y);
 g.stroke();
 }
 
-/* 🧠 advice */
-function advice(t){
-if(t<0) return "🧊 extreme cold";
-if(t<10) return "🧥 winter jacket";
-if(t<20) return "👕 light jacket";
-return "☀️ warm weather";
-}
-
-/* 🌤 load */
+/* ======================
+🌤 MAIN LOAD
+====================== */
 async function load(){
 
 navigator.geolocation.getCurrentPosition(async(pos)=>{
@@ -259,12 +325,13 @@ const t=Math.round(w.temperature);
 document.getElementById("temp").innerText=t+"°";
 document.getElementById("feel").innerText=t+"°";
 document.getElementById("wind").innerText=w.windspeed+" km/h";
-document.getElementById("hum").innerText="—";
-
-document.getElementById("desc").innerText=advice(t);
-document.getElementById("city").innerText="📍 your location";
 
 bg(t);
+
+const city = await getCity(lat,lon);
+document.getElementById("city").innerText="📍 "+city;
+
+stormCheck(t);
 
 /* hourly */
 let h=document.getElementById("hourly");
