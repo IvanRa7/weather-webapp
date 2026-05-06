@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <style>
+    body {
+      font-family: Arial;
+      background: #0f172a;
+      color: white;
+      text-align: center;
+      padding: 20px;
+    }
+    .card {
+      background: #1e293b;
+      padding: 20px;
+      border-radius: 15px;
+      margin-top: 20px;
+    }
+  </style>
+</head>
+<body>
+
+<h2>🌤 Weather App</h2>
+
+<div class="card">
+  <p id="temp">Загрузка...</p>
+  <p id="advice"></p>
+</div>
+
+<script>
+const tg = window.Telegram.WebApp;
+tg.expand();
+
+fetch("https://YOUR-API/weather?user_id=" + tg.initDataUnsafe.user.id)
+.then(r => r.json())
+.then(d => {
+  document.getElementById("temp").innerText = "🌡 " + d.temp + "°C";
+  document.getElementById("advice").innerText = d.advice;
+});
+</script>
+
+</body>
+</html>
