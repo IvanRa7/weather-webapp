@@ -5,110 +5,92 @@
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
 <style>
-:root {
-  --bg1:#0f172a;
-  --bg2:#1e293b;
+body{
+margin:0;
+font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",Arial;
+color:white;
+overflow:hidden;
 }
 
-body {
-  margin:0;
-  font-family:-apple-system,BlinkMacSystemFont,"SF Pro Display",Arial;
-  color:white;
-  background: linear-gradient(180deg,var(--bg1),var(--bg2));
-  overflow:hidden;
+/* 🌌 BG */
+#bg{
+position:fixed;
+width:100%;
+height:100%;
+z-index:-3;
+transition:1s;
 }
 
-/* 🌌 BACKGROUND LAYER */
-#bg {
-  position:fixed;
-  width:100%;
-  height:100%;
-  z-index:-3;
-  transition:1s;
+/* 🌧 FX */
+canvas{
+position:fixed;
+top:0;
+left:0;
+z-index:-2;
 }
 
-/* 🌧 canvas FX */
-canvas {
-  position:fixed;
-  top:0;
-  left:0;
-  z-index:-2;
+.container{padding:22px;}
+
+.city{text-align:center;opacity:.85;font-size:18px;}
+.temp{text-align:center;font-size:104px;font-weight:200;}
+.desc{text-align:center;opacity:.8}
+
+/* cards */
+.card{
+background:rgba(255,255,255,0.08);
+backdrop-filter:blur(20px);
+border-radius:22px;
+padding:14px;
+margin-top:12px;
 }
 
-/* 📱 UI */
-.container { padding:22px; }
-
-.city {
-  text-align:center;
-  font-size:18px;
-  opacity:.85;
-}
-
-.temp {
-  text-align:center;
-  font-size:104px;
-  font-weight:200;
-  letter-spacing:-2px;
-}
-
-.desc {
-  text-align:center;
-  opacity:.8;
-  margin-bottom:8px;
-}
-
-/* glass cards */
-.card {
-  background:rgba(255,255,255,0.08);
-  backdrop-filter: blur(20px);
-  border-radius:22px;
-  padding:14px;
-  margin-top:12px;
-}
-
-/* rows */
-.row {
-  display:flex;
-  justify-content:space-between;
-  padding:7px 0;
-  font-size:14px;
-  opacity:.9;
+.row{
+display:flex;
+justify-content:space-between;
+padding:6px 0;
+font-size:14px;
 }
 
 /* hourly */
-.hourly {
-  display:flex;
-  overflow-x:auto;
-  gap:10px;
+.hourly{
+display:flex;
+overflow-x:auto;
+gap:10px;
 }
 
-.hour {
-  min-width:72px;
-  text-align:center;
-  background:rgba(255,255,255,0.08);
-  padding:10px;
-  border-radius:14px;
+.hour{
+min-width:72px;
+text-align:center;
+background:rgba(255,255,255,0.08);
+padding:10px;
+border-radius:14px;
+}
+
+/* chart */
+canvas#chart{
+width:100%;
+height:120px;
+margin-top:10px;
 }
 
 /* daily */
-.day {
-  display:flex;
-  justify-content:space-between;
-  padding:10px;
-  border-radius:14px;
-  background:rgba(255,255,255,0.06);
-  margin-top:6px;
+.day{
+display:flex;
+justify-content:space-between;
+padding:10px;
+border-radius:14px;
+background:rgba(255,255,255,0.06);
+margin-top:6px;
 }
 
-/* button */
-button {
-  width:100%;
-  margin-top:12px;
-  padding:12px;
-  border-radius:14px;
-  border:none;
-  font-weight:bold;
-  background:white;
+button{
+width:100%;
+margin-top:12px;
+padding:12px;
+border-radius:14px;
+border:none;
+font-weight:bold;
+background:white;
 }
 </style>
 </head>
@@ -127,19 +109,23 @@ button {
 <button onclick="load()">🔄 refresh</button>
 
 <div class="card">
-  <div class="row"><span>🌡 feels like</span><span id="feel">--°</span></div>
-  <div class="row"><span>💨 wind</span><span id="wind">--</span></div>
-  <div class="row"><span>💧 humidity</span><span id="hum">--</span></div>
+<div class="row"><span>🌡 feels</span><span id="feel">--°</span></div>
+<div class="row"><span>💨 wind</span><span id="wind">--</span></div>
 </div>
 
 <div class="card">
-  <div>⏱ hourly</div>
-  <div class="hourly" id="hourly"></div>
+<div>📊 temperature graph</div>
+<canvas id="chart"></canvas>
 </div>
 
 <div class="card">
-  <div>📆 7 days</div>
-  <div id="daily"></div>
+<div>⏱ hourly</div>
+<div class="hourly" id="hourly"></div>
+</div>
+
+<div class="card">
+<div>📆 7 days</div>
+<div id="daily"></div>
 </div>
 
 </div>
@@ -148,21 +134,21 @@ button {
 const tg=window.Telegram.WebApp;
 tg.expand();
 
-/* 🌧 optimized FX engine */
+/* FX */
 const c=document.getElementById("fx");
 const ctx=c.getContext("2d");
 c.width=innerWidth;
 c.height=innerHeight;
 
-let particles=[];
+let p=[];
 
 function rain(){
-particles=[];
-for(let i=0;i<100;i++){
-particles.push({
+p=[];
+for(let i=0;i<90;i++){
+p.push({
 x:Math.random()*c.width,
 y:Math.random()*c.height,
-l:Math.random()*16,
+l:Math.random()*15,
 s:Math.random()*4+2
 });
 }
@@ -172,51 +158,58 @@ function draw(){
 ctx.clearRect(0,0,c.width,c.height);
 ctx.strokeStyle="rgba(255,255,255,0.25)";
 
-for(let p of particles){
+for(let d of p){
 ctx.beginPath();
-ctx.moveTo(p.x,p.y);
-ctx.lineTo(p.x,p.y+p.l);
+ctx.moveTo(d.x,d.y);
+ctx.lineTo(d.x,d.y+d.l);
 ctx.stroke();
 
-p.y+=p.s;
-if(p.y>c.height){
-p.y=0;
-p.x=Math.random()*c.width;
-}
+d.y+=d.s;
+if(d.y>c.height){d.y=0;d.x=Math.random()*c.width;}
 }
 
 requestAnimationFrame(draw);
 }
 
-/* 🎨 dynamic theme */
-function theme(t){
-const bg=document.getElementById("bg");
+/* BG */
+function bg(t){
+let b=document.getElementById("bg");
 
-if(t<0){
-bg.style.background="linear-gradient(180deg,#0f2027,#203a43)";
-rain();
-}
-else if(t<10){
-bg.style.background="linear-gradient(180deg,#1e3c72,#2a5298)";
-rain();
-}
-else if(t<20){
-bg.style.background="linear-gradient(180deg,#2b5876,#4e4376)";
-}
-else{
-bg.style.background="linear-gradient(180deg,#f12711,#f5af19)";
-}
+if(t<0){b.style.background="linear-gradient(180deg,#0f2027,#203a43)";rain();}
+else if(t<10){b.style.background="linear-gradient(180deg,#1e3c72,#2a5298)";rain();}
+else if(t<20){b.style.background="linear-gradient(180deg,#2b5876,#4e4376)";}
+else{b.style.background="linear-gradient(180deg,#f12711,#f5af19)";}
 }
 
-/* 🧠 advice */
-function advice(t){
-if(t<0) return "🧊 extreme cold";
-if(t<10) return "🧥 jacket required";
-if(t<20) return "👕 light jacket";
-return "☀️ warm weather";
+/* GRAPH */
+function drawChart(data){
+const canvas=document.getElementById("chart");
+const g=canvas.getContext("2d");
+
+canvas.width=innerWidth-50;
+canvas.height=120;
+
+g.clearRect(0,0,canvas.width,canvas.height);
+
+let max=Math.max(...data);
+let min=Math.min(...data);
+
+g.strokeStyle="white";
+g.lineWidth=2;
+g.beginPath();
+
+data.forEach((v,i)=>{
+let x=i*(canvas.width/data.length);
+let y=canvas.height-((v-min)/(max-min))*100;
+
+if(i==0)g.moveTo(x,y);
+else g.lineTo(x,y);
+});
+
+g.stroke();
 }
 
-/* 🌤 load weather */
+/* WEATHER */
 async function load(){
 
 navigator.geolocation.getCurrentPosition(async(pos)=>{
@@ -235,19 +228,26 @@ const t=Math.round(w.temperature);
 document.getElementById("temp").innerText=t+"°";
 document.getElementById("feel").innerText=t+"°";
 document.getElementById("wind").innerText=w.windspeed+" km/h";
-document.getElementById("hum").innerText="—";
 
-document.getElementById("desc").innerText=advice(t);
+document.getElementById("desc").innerText="current weather";
 document.getElementById("city").innerText="📍 your location";
 
-theme(t);
+bg(t);
 
 /* hourly */
 let h=document.getElementById("hourly");
 h.innerHTML="";
+let graphData=[];
+
 for(let i=0;i<12;i++){
-h.innerHTML+=`<div class="hour">${i}:00<br><b>${Math.round(d.hourly.temperature_2m[i])}°</b></div>`;
+let temp=Math.round(d.hourly.temperature_2m[i]);
+graphData.push(temp);
+
+h.innerHTML+=`<div class="hour">${i}:00<br><b>${temp}°</b></div>`;
 }
+
+/* chart */
+drawChart(graphData);
 
 /* daily */
 let dd=document.getElementById("daily");
@@ -260,7 +260,7 @@ dd.innerHTML+=`
 </div>`;
 }
 
-/* start animation once */
+/* start fx */
 draw();
 
 });
