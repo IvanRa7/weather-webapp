@@ -6,88 +6,135 @@
 
   <style>
     body {
-      font-family: Arial;
-      background: #0f172a;
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", Arial;
       color: white;
       text-align: center;
-      padding: 20px;
+      overflow-x: hidden;
+      background: linear-gradient(180deg, #1e3c72, #2a5298);
     }
 
-    .card {
-      background: #1e293b;
-      padding: 20px;
-      border-radius: 15px;
-      margin-top: 20px;
+    .wrap {
+      padding: 25px;
+    }
+
+    .city {
+      font-size: 22px;
+      opacity: 0.9;
+      margin-top: 10px;
     }
 
     .temp {
-      font-size: 32px;
+      font-size: 80px;
+      font-weight: 200;
       margin: 10px 0;
     }
 
+    .desc {
+      font-size: 18px;
+      opacity: 0.9;
+      margin-bottom: 20px;
+    }
+
+    .card {
+      background: rgba(255,255,255,0.12);
+      backdrop-filter: blur(10px);
+      border-radius: 18px;
+      padding: 15px;
+      margin: 10px;
+    }
+
+    .row {
+      display: flex;
+      justify-content: space-between;
+      font-size: 14px;
+      opacity: 0.9;
+    }
+
     button {
-      padding: 10px 15px;
+      margin-top: 15px;
+      padding: 12px 18px;
+      border-radius: 12px;
       border: none;
-      border-radius: 10px;
-      background: #38bdf8;
+      background: white;
       color: black;
       font-weight: bold;
       cursor: pointer;
-      margin-top: 10px;
     }
   </style>
 </head>
 
 <body>
 
-<h2>🌤 Weather App</h2>
+<div class="wrap">
+  <div class="city" id="city">📍 Определяем город...</div>
 
-<div class="card">
-  <p id="status">📍 Нажми кнопку чтобы получить погоду</p>
+  <div class="temp" id="temp">--°</div>
+  <div class="desc" id="desc">Загрузка...</div>
 
-  <div class="temp" id="temp"></div>
-  <div id="advice"></div>
+  <button onclick="loadWeather()">🔄 Обновить</button>
 
-  <button onclick="getWeather()">📍 Получить погоду</button>
+  <div class="card">
+    <div class="row">
+      <span>🌡 Ощущается</span>
+      <span id="feels">--°</span>
+    </div>
+    <div class="row">
+      <span>🌬 Ветер</span>
+      <span id="wind">-- км/ч</span>
+    </div>
+  </div>
+
+  <div class="card">
+    <div id="advice">🧠 Рекомендации загружаются...</div>
+  </div>
 </div>
 
 <script>
 const tg = window.Telegram.WebApp;
 tg.expand();
 
-function getAdvice(temp) {
+function getAdvice(temp, wind) {
   if (temp < 0) return "🧊 Очень холодно — зимняя одежда";
-  if (temp < 10) return "🧥 Холодно — куртка нужна";
+  if (temp < 10) return "🧥 Холодно — куртка обязательна";
   if (temp < 20) return "👕 Лёгкая куртка";
-  return "☀️ Жарко — лёгкая одежда";
+  if (temp >= 20) return "☀️ Тепло — лёгкая одежда";
+  if (wind > 30) return "🌬 Ветрено — оденься теплее";
+  return "👍 Комфортная погода";
 }
 
-function getWeather() {
-  document.getElementById("status").innerText = "📡 Получаем геолокацию...";
+async function loadWeather() {
+
+  document.getElementById("desc").innerText = "Получаем данные...";
 
   navigator.geolocation.getCurrentPosition(async (pos) => {
 
     const lat = pos.coords.latitude;
     const lon = pos.coords.longitude;
 
-    document.getElementById("status").innerText = "🌍 Загружаем погоду...";
-
+    // Open-Meteo API
     const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`;
 
     const res = await fetch(url);
     const data = await res.json();
 
-    const temp = data.current_weather.temperature;
+    const w = data.current_weather;
 
-    document.getElementById("temp").innerText = "🌡 " + temp + "°C";
-    document.getElementById("advice").innerText = getAdvice(temp);
+    const temp = Math.round(w.temperature);
+    const wind = Math.round(w.windspeed);
 
-    document.getElementById("status").innerText = "✅ Готово";
+    document.getElementById("temp").innerText = temp + "°";
+    document.getElementById("feels").innerText = temp + "°";
+    document.getElementById("wind").innerText = wind + " км/ч";
 
-  }, () => {
-    document.getElementById("status").innerText =
-      "❌ Разреши геолокацию";
+    document.getElementById("desc").innerText = "Сейчас на улице";
+
+    document.getElementById("advice").innerText = getAdvice(temp, wind);
+
+    document.getElementById("city").innerText = "📍 Ваше местоположение";
+
   });
+
 }
 </script>
 
