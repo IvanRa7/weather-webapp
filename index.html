@@ -5,113 +5,109 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <script src="https://telegram.org/js/telegram-web-app.js"></script>
 
-<title>Weather</title>
+<title>Weather Pro</title>
 
 <style>
-html, body {
-    margin:0;
-    height:100%;
-    overflow:hidden;
-    font-family:-apple-system,BlinkMacSystemFont,sans-serif;
-    color:white;
+html,body{
+margin:0;
+height:100%;
+overflow:hidden;
+font-family:-apple-system,BlinkMacSystemFont,sans-serif;
+color:white;
 }
 
-/* ===== ROOT LAYERS ===== */
-#bg {
-    position:fixed;
-    inset:0;
-    z-index:0;
-    background: linear-gradient(180deg,#1b2a4a,#0b1220);
+/* ===== BACKGROUND ===== */
+#bg{
+position:fixed;
+inset:0;
+z-index:0;
+background:linear-gradient(180deg,#1b2a4a,#0b1220);
+transition:1s;
 }
 
-/* ===== WEATHER LAYER (IMPORTANT FIX) ===== */
-#weather-layer {
-    position:fixed;
-    inset:0;
-    z-index:1;
-    pointer-events:none; /* 🔥 важно */
+/* ===== PARALLAX LAYERS ===== */
+.layer{
+position:fixed;
+inset:0;
+pointer-events:none;
 }
 
-/* clouds / rain / snow inside layer */
-.cloud, .drop, .snow {
-    position:absolute;
-    pointer-events:none;
+.cloud,.drop{
+position:absolute;
+opacity:.6;
 }
 
-/* ===== UI LAYER ===== */
-.container {
-    position:relative;
-    z-index:10;
-    height:100vh;
-    overflow-y:auto;     /* 🔥 СКРОЛЛ ТОЛЬКО ЗДЕСЬ */
-    -webkit-overflow-scrolling:touch;
-    padding:20px;
-    box-sizing:border-box;
+/* CLOUDS */
+.cloud{
+width:180px;
+height:60px;
+background:rgba(255,255,255,.15);
+border-radius:50px;
+animation:move 40s linear infinite;
 }
 
-/* ===== CARDS ===== */
-.card {
-    background: rgba(255,255,255,0.08);
-    border-radius:20px;
-    padding:20px;
-    backdrop-filter: blur(15px);
-    margin-bottom:15px;
+@keyframes move{
+from{transform:translateX(-200px)}
+to{transform:translateX(120vw)}
 }
 
-.city { font-size:28px; font-weight:600; }
-.temp { font-size:64px; font-weight:200; }
-.small { opacity:0.7; }
-
-/* WEEK SCROLL FIX */
-.week {
-    display:flex;
-    gap:10px;
-    overflow-x:auto;
+/* RAIN */
+.drop{
+width:2px;
+height:20px;
+background:rgba(255,255,255,.4);
+animation:fall linear infinite;
 }
 
-.day {
-    min-width:80px;
-    background: rgba(255,255,255,0.06);
-    padding:10px;
-    border-radius:12px;
-    text-align:center;
+@keyframes fall{
+to{transform:translateY(100vh)}
 }
 
-/* ===== ANIMATIONS ===== */
-.cloud {
-    width:180px;
-    height:60px;
-    background:rgba(255,255,255,0.15);
-    border-radius:50px;
-    animation: move 40s linear infinite;
+/* ===== LIGHTNING FLASH ===== */
+.flash{
+position:fixed;
+inset:0;
+background:white;
+opacity:0;
+z-index:50;
+pointer-events:none;
+transition:.1s;
 }
 
-@keyframes move {
-    from { transform: translateX(-200px); }
-    to { transform: translateX(120vw); }
+/* ===== UI ===== */
+.ui{
+position:relative;
+z-index:10;
+height:100vh;
+overflow-y:auto;
+padding:20px;
 }
 
-.drop {
-    width:2px;
-    height:18px;
-    background:rgba(255,255,255,0.4);
-    animation: fall linear infinite;
+.card{
+background:rgba(255,255,255,.08);
+backdrop-filter:blur(15px);
+border-radius:20px;
+padding:15px;
+margin-bottom:12px;
 }
 
-@keyframes fall {
-    to { transform: translateY(100vh); }
+.city{font-size:26px;font-weight:600}
+.temp{font-size:60px;font-weight:200}
+.small{opacity:.7}
+
+/* ===== CHART ===== */
+canvas{
+width:100%;
+height:120px;
 }
 
-.snow {
-    width:6px;
-    height:6px;
-    background:white;
-    border-radius:50%;
-    animation: snow linear infinite;
-}
-
-@keyframes snow {
-    to { transform: translateY(100vh); }
+/* ===== CLOCK ===== */
+#time{
+position:fixed;
+top:10px;
+right:15px;
+font-size:14px;
+opacity:.7;
 }
 </style>
 </head>
@@ -119,125 +115,156 @@ html, body {
 <body>
 
 <div id="bg"></div>
-<div id="weather-layer"></div>
 
-<div class="container">
+<div class="layer" id="fx"></div>
+<div class="flash" id="flash"></div>
 
-    <div class="card">
-        <div class="city" id="city">Loading...</div>
-        <div class="temp" id="temp">--°</div>
-        <div class="small" id="desc">--</div>
-    </div>
+<div id="time"></div>
 
-    <div class="card">
-        <div>📆 7-Day Forecast</div>
-        <div class="week" id="week"></div>
-    </div>
+<div class="ui">
+
+<div class="card">
+<div class="city" id="city">Loading...</div>
+<div class="temp" id="temp">--°</div>
+<div class="small" id="desc">--</div>
+<div id="advice"></div>
+</div>
+
+<div class="card">
+📊 Temperature Graph
+<canvas id="chart"></canvas>
+</div>
 
 </div>
 
 <script>
-const layer = document.getElementById("weather-layer");
+const fx=document.getElementById("fx");
+const flash=document.getElementById("flash");
 
-/* ===== CLEAN ===== */
-function clearFX(){
-    layer.innerHTML="";
-}
+/* ===== CLOCK ===== */
+setInterval(()=>{
+document.getElementById("time").innerText=
+new Date().toLocaleTimeString();
+},1000);
 
-/* ===== FX ===== */
+/* ===== SOUND ===== */
+const thunder=new Audio("https://cdn.pixabay.com/download/audio/2022/03/15/audio_7f3c5b2c5a.mp3");
+
+/* ===== PARALLAX ===== */
+document.addEventListener("mousemove",(e)=>{
+const x=(e.clientX/window.innerWidth-0.5)*10;
+const y=(e.clientY/window.innerHeight-0.5)*10;
+fx.style.transform=`translate(${x}px,${y}px)`;
+});
+
+/* ===== WEATHER FX ===== */
 function clouds(){
-    for(let i=0;i<4;i++){
-        let c=document.createElement("div");
-        c.className="cloud";
-        c.style.top=Math.random()*40+"vh";
-        c.style.left="-200px";
-        c.style.animationDuration=(30+Math.random()*20)+"s";
-        layer.appendChild(c);
-    }
+for(let i=0;i<4;i++){
+let c=document.createElement("div");
+c.className="cloud";
+c.style.top=Math.random()*40+"vh";
+c.style.animationDuration=(30+Math.random()*20)+"s";
+fx.appendChild(c);
+}
 }
 
 function rain(){
-    for(let i=0;i<80;i++){
-        let d=document.createElement("div");
-        d.className="drop";
-        d.style.left=Math.random()*100+"vw";
-        d.style.animationDuration=(0.5+Math.random())+"s";
-        layer.appendChild(d);
-    }
+for(let i=0;i<80;i++){
+let d=document.createElement("div");
+d.className="drop";
+d.style.left=Math.random()*100+"vw";
+d.style.animationDuration=(0.5+Math.random())+"s";
+fx.appendChild(d);
+}
 }
 
-function snow(){
-    for(let i=0;i<60;i++){
-        let s=document.createElement("div");
-        s.className="snow";
-        s.style.left=Math.random()*100+"vw";
-        s.style.animationDuration=(3+Math.random()*4)+"s";
-        layer.appendChild(s);
-    }
+/* ===== LIGHTNING SYSTEM ===== */
+function lightning(){
+setInterval(()=>{
+if(Math.random()<0.2){
+flash.style.opacity="1";
+setTimeout(()=>flash.style.opacity="0",100);
+
+thunder.currentTime=0;
+thunder.play();
+}
+},3000);
 }
 
-/* ===== WEATHER BG ===== */
-function setWeather(code){
+/* ===== ADVICE ===== */
+function advice(temp,wind){
+let t="🧠 Что надеть:\n";
 
-    clearFX();
+if(temp<0)t+="🧥 Очень тепло\n";
+else if(temp<10)t+="🧥 Куртка\n";
+else if(temp<20)t+="👕 Лёгкая одежда\n";
+else t+="☀️ Жарко\n";
 
-    if(code<=2){
-        document.getElementById("bg").style.background =
-            "linear-gradient(180deg,#4facfe,#0b1220)";
-        clouds();
-    }
-    else if(code>=51 && code<=67){
-        document.getElementById("bg").style.background =
-            "linear-gradient(180deg,#3a7bd5,#000428)";
-        rain();
-    }
-    else if(code>=71 && code<=77){
-        document.getElementById("bg").style.background =
-            "linear-gradient(180deg,#e6dada,#274046)";
-        snow();
-    }
+if(wind>30)t+="🌬 Ветрено\n";
+
+return t;
+}
+
+/* ===== CHART ===== */
+function drawChart(data){
+const c=document.getElementById("chart");
+const ctx=c.getContext("2d");
+
+c.width=300;
+c.height=120;
+
+ctx.clearRect(0,0,300,120);
+ctx.strokeStyle="white";
+ctx.beginPath();
+
+data.forEach((v,i)=>{
+let x=i*30;
+let y=100-v;
+if(i==0)ctx.moveTo(x,y);
+else ctx.lineTo(x,y);
+});
+
+ctx.stroke();
 }
 
 /* ===== GEO ===== */
-navigator.geolocation.getCurrentPosition(async (pos)=>{
+navigator.geolocation.getCurrentPosition(async(pos)=>{
 
-    const lat=pos.coords.latitude;
-    const lon=pos.coords.longitude;
+const lat=pos.coords.latitude;
+const lon=pos.coords.longitude;
 
-    const cityRes=await fetch(
-        `https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=ru`
-    );
-    const cityData=await cityRes.json();
+const city=await fetch(
+`https://api.bigdatacloud.net/data/reverse-geocode-client?latitude=${lat}&longitude=${lon}&localityLanguage=ru`
+).then(r=>r.json());
 
-    const wRes=await fetch(
-        `https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`
-    );
-    const w=await wRes.json();
+const w=await fetch(
+`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=temperature_2m_max,temperature_2m_min&timezone=auto`
+).then(r=>r.json());
 
-    document.getElementById("city").innerText =
-        cityData.city || "Unknown";
+document.getElementById("city").innerText=
+city.city||"Unknown";
 
-    document.getElementById("temp").innerText =
-        Math.round(w.current_weather.temperature)+"°";
+document.getElementById("temp").innerText=
+Math.round(w.current_weather.temperature)+"°";
 
-    document.getElementById("desc").innerText =
-        "Wind "+w.current_weather.windspeed+" km/h";
+document.getElementById("desc").innerText=
+"Wind "+w.current_weather.windspeed+" km/h";
 
-    setWeather(w.current_weather.weathercode);
+document.getElementById("advice").innerText=
+advice(w.current_weather.temperature,w.current_weather.windspeed);
 
-    const week=document.getElementById("week");
-    week.innerHTML="";
+/* background */
+if(w.current_weather.weathercode<=2){
+document.getElementById("bg").style.background="linear-gradient(180deg,#4facfe,#0b1220)";
+clouds();
+}else{
+document.getElementById("bg").style.background="linear-gradient(180deg,#1b2a4a,#0b1220)";
+rain();
+}
 
-    for(let i=0;i<w.daily.time.length;i++){
-        let d=document.createElement("div");
-        d.className="day";
-        d.innerHTML=`
-            <div>${w.daily.time[i].slice(5)}</div>
-            <div>${Math.round(w.daily.temperature_2m_min[i])}°</div>
-            <div>${Math.round(w.daily.temperature_2m_max[i])}°</div>
-        `;
-        week.appendChild(d);
-    }
+drawChart(w.daily.temperature_2m_max.slice(0,7));
+
+lightning();
 
 });
 </script>
